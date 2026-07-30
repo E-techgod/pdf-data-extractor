@@ -1,6 +1,6 @@
 import pytest
 
-from src.pdf_doc_data_extractor.tools import classify_document
+from src.pdf_data_extractor.tools import classify_document
 
 
 def test_classifies_invoice() -> None:
