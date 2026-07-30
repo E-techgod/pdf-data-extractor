@@ -1,14 +1,18 @@
 import json
 from typing import Any
+
 from groq import Groq
 
 from src.pdf_data_extractor.config import get_groq_api_key
 from src.pdf_data_extractor.tool_registry import TOOL_REGISTRY
 from src.pdf_data_extractor.tool_schemas import TOOLS
-DEFAULT_MODEL =  "llama-3.1-8b-instant" # "openai/gpt-oss-20b"  
+
+DEFAULT_MODEL = "llama-3.1-8b-instant"
 
 
-def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
+def _build_assistant_tool_message(
+    assistant_message: Any,
+) -> dict[str, Any]:
     message: dict[str, Any] = {
         "role": "assistant",
         "content": assistant_message.content or "",
@@ -18,7 +22,7 @@ def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
         message["tool_calls"] = [
             {
                 "id": tool_call.id,
-                "type": tool_call.type,
+                "type": getattr(tool_call, "type", "function"),
                 "function": {
                     "name": tool_call.function.name,
                     "arguments": tool_call.function.arguments,
@@ -30,11 +34,20 @@ def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
     return message
 
 
-def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
+def build_groq_client() -> Groq:
+    return Groq(api_key=get_groq_api_key())
+
+
+def classify_with_groq(
+    document_text: str,
+    *,
+    model: str = DEFAULT_MODEL,
+    client: Any | None = None,
+) -> str:
     if not document_text.strip():
         raise ValueError("document_text cannot be empty")
 
-    client = Groq(api_key=get_groq_api_key())
+    groq_client = client or build_groq_client()
 
     messages: list[dict[str, Any]] = [
         {
@@ -55,7 +68,7 @@ def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
         },
     ]
 
-    first_response = client.chat.completions.create( # First API call, This asks the model to choose and request a tool 
+    first_response = groq_client.chat.completions.create(
         model=model,
         messages=messages,
         tools=TOOLS,
@@ -66,9 +79,7 @@ def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
     assistant_message = first_response.choices[0].message
 
     if not assistant_message.tool_calls:
-        raise RuntimeError(
-            "Groq did not return a tool call."
-        )
+        raise RuntimeError("Groq did not return a tool call.")
 
     messages.append(
         _build_assistant_tool_message(assistant_message)
@@ -92,7 +103,13 @@ def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
             ) from exc
 
         tool_function = TOOL_REGISTRY[tool_name]
-        tool_result = tool_function(**arguments)
+
+        try:
+            tool_result = tool_function(**arguments)
+        except TypeError as exc:
+            raise ValueError(
+                f"Invalid arguments for tool: {tool_name}"
+            ) from exc
 
         messages.append(
             {
@@ -103,7 +120,7 @@ def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
             }
         )
 
-    final_response = client.chat.completions.create( # Second call: Happens after the program executes the function and returns a result
+    final_response = groq_client.chat.completions.create(
         model=model,
         messages=messages,
         tools=TOOLS,
