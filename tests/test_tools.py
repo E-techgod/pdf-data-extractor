@@ -1,5 +1,8 @@
 import pytest
 
+from src.pdf_data_extractor.agent import (
+    _build_assistant_tool_message,
+)
 from src.pdf_data_extractor.tools import classify_document
 
 
@@ -84,3 +87,38 @@ def test_rejects_empty_document() -> None:
         match="document_text cannot be empty",
     ):
         classify_document("   ")
+
+
+def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
+    class FakeFunction:
+        name = "classify_document"
+        arguments = '{"document_text":"sample"}'
+
+    class FakeToolCall:
+        id = "call_123"
+        type = "function"
+        function = FakeFunction()
+
+    class FakeAssistantMessage:
+        content = None
+        tool_calls = [FakeToolCall()]
+        annotations = [{"unsupported": True}]
+
+    result = _build_assistant_tool_message(
+        FakeAssistantMessage()
+    )
+
+    assert result == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "call_123",
+                "type": "function",
+                "function": {
+                    "name": "classify_document",
+                    "arguments": '{"document_text":"sample"}',
+                },
+            }
+        ],
+    }
