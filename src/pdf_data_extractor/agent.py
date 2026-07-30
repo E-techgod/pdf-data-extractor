@@ -1,6 +1,5 @@
 import json
 from typing import Any
-
 from groq import Groq
 
 from src.pdf_data_extractor.config import get_groq_api_key
