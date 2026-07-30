@@ -55,7 +55,7 @@ def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
         },
     ]
 
-    first_response = client.chat.completions.create(
+    first_response = client.chat.completions.create( # First API call, This asks the model to choose and request a tool 
         model=model,
         messages=messages,
         tools=TOOLS,
@@ -103,7 +103,7 @@ def classify_with_groq(document_text: str,*,model: str = DEFAULT_MODEL) -> str:
             }
         )
 
-    final_response = client.chat.completions.create(
+    final_response = client.chat.completions.create( # Second call: Happens after the program executes the function and returns a result
         model=model,
         messages=messages,
         tools=TOOLS,
