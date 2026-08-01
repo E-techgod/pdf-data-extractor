@@ -29,6 +29,53 @@ tests/
   test_tools.py        # the keyword classifier
 ```
 
+## Architecture
+
+```mermaid
+flowchart TD
+    U[User / Developer] --> M[main.py]
+    M --> A[classify_with_groq<br/>src/pdf_data_extractor/agent.py]
+
+    subgraph AppCore[Application Core]
+        A --> C[build_groq_client]
+        C --> K[get_groq_api_key<br/>config.py]
+        K --> E[.env / GROQ_API_KEY]
+
+        A --> G1[Groq Chat Completion<br/>Call 1]
+        A --> S[TOOLS schema<br/>tool_schemas.py]
+        A --> R[TOOL_REGISTRY<br/>tool_registry.py]
+
+        G1 --> TC[Required tool call:<br/>classify_document]
+        TC --> R
+        R --> T[classify_document<br/>tools.py]
+
+        T --> KG[Keyword scoring rules<br/>invoice / resume / receipt / report]
+        KG --> CR[Structured classification result<br/>document_type + reason]
+
+        CR --> TM[Tool message appended<br/>to conversation]
+        TM --> G2[Groq Chat Completion<br/>Call 2]
+        G2 --> FR[Final natural-language response]
+    end
+
+    FR --> O[Console output]
+
+    subgraph Tests[Test Coverage]
+        TA[tests/test_agent.py]
+        TT[tests/test_tools.py]
+    end
+
+    TA -. mocks .-> G1
+    TA -. verifies .-> TM
+    TA -. verifies .-> G2
+    TT -. verifies .-> T
+
+    subgraph FutureWork[Planned but not wired yet]
+        P1[pypdf dependency]
+        P2[pydantic dependency]
+        P3[Real PDF text extraction pipeline]
+    end
+```
+
 ## Running it
 
 ```bash
