@@ -1,12 +1,15 @@
 from pathlib import Path
 
-from src.pdf_data_extractor.agent import classify_pdf_with_groq
+from src.pdf_data_extractor.agent import analyze_document_with_groq
 
 
 def main() -> None:
-    pdf_path = Path("data/sample.pdf")
+    pdf_path = Path("data/invoice.pdf")
 
-    result = classify_pdf_with_groq(pdf_path)
+    with open(pdf_path, "r") as f:
+        document = f.read()
+
+    result = analyze_document_with_groq(document)
 
     print("\nFinal response:")
     print(result)

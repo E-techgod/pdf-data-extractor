@@ -11,15 +11,14 @@ from src.pdf_data_extractor.tool_schemas import TOOLS
 from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 
 DEFAULT_MODEL = "openai/gpt-oss-20b"
+MAX_TOOL_ROUNDS = 5
 CLASSIFY_DOCUMENT_TOOL_CHOICE = {
     "type": "function",
     "function": {"name": "classify_document"},
 }
 
 
-def _build_assistant_tool_message(
-    assistant_message: Any,
-) -> dict[str, Any]:
+def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
     message: dict[str, Any] = {
         "role": "assistant",
         "content": assistant_message.content or "",
@@ -41,11 +40,7 @@ def _build_assistant_tool_message(
     return message
 
 
-def _parse_tool_arguments(
-    raw_arguments: Any,
-    *,
-    tool_name: str,
-) -> dict[str, Any]:
+def _parse_tool_arguments(raw_arguments: Any,*,tool_name: str) -> dict[str, Any]:
     if isinstance(raw_arguments, dict):
         return raw_arguments
 
@@ -103,11 +98,13 @@ def classify_with_groq(
             "role": "system",
             "content": (
                 "You are a document analysis assistant. "
-                "Use the available classification tool to classify "
-                "the provided document. The tool reads the document "
-                "from application state, so call it with empty JSON "
-                "arguments: {}. After receiving the tool result, "
-                "explain the classification briefly."
+                "Use the available tools to analyze the provided "
+                "document. Start by calling the classification tool. "
+                "The classification tool reads the document from "
+                "application state, so call it with empty JSON "
+                "arguments: {}. After classification, you may call "
+                "additional tools if needed. Once the tool work is "
+                "complete, respond to the user with the final result."
             ),
         },
         {
@@ -119,70 +116,99 @@ def classify_with_groq(
         },
     ]
 
-    first_response = groq_client.chat.completions.create(
-        model=model,
-        messages=messages,
-        tools=TOOLS,
-        tool_choice=CLASSIFY_DOCUMENT_TOOL_CHOICE,
-        temperature=0,
+    tool_choice: str | dict[str, Any] = (
+        CLASSIFY_DOCUMENT_TOOL_CHOICE
     )
 
-    assistant_message = first_response.choices[0].message
+    for round_index in range(MAX_TOOL_ROUNDS + 1):
+        response = groq_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=TOOLS,
+            tool_choice=tool_choice,
+            temperature=0,
+        )
 
-    if not assistant_message.tool_calls:
-        raise RuntimeError("Groq did not return a tool call.")
+        assistant_message = response.choices[0].message
+        tool_calls = assistant_message.tool_calls or []
 
-    messages.append(
-        _build_assistant_tool_message(assistant_message)
-    )
-
-    for tool_call in assistant_message.tool_calls:
-        tool_name = tool_call.function.name
-
-        if tool_name not in TOOL_REGISTRY:
-            raise ValueError(
-                f"Unknown tool requested: {tool_name}"
+        if round_index == 0 and not tool_calls:
+            raise RuntimeError(
+                "Groq did not return a tool call."
             )
 
-        arguments = _parse_tool_arguments(
-            tool_call.function.arguments,
-            tool_name=tool_name,
-        )
+        if not tool_calls:
+            final_content = assistant_message.content
 
-        tool_function = TOOL_REGISTRY[tool_name]
+            if not final_content:
+                raise RuntimeError(
+                    "Groq returned an empty final response."
+                )
 
-        if tool_name == "classify_document":
-            arguments = {"document_text": document_text}
+            return final_content
 
-        try:
-            tool_result = tool_function(**arguments)
-        except TypeError as exc:
-            raise ValueError(
-                f"Invalid arguments for tool: {tool_name}"
-            ) from exc
+        if round_index == MAX_TOOL_ROUNDS:
+            raise RuntimeError(
+                "Groq exceeded the maximum number of tool rounds."
+            )
 
         messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": tool_name,
-                "content": json.dumps(tool_result),
-            }
+            _build_assistant_tool_message(
+                assistant_message
+            )
         )
 
-    final_response = groq_client.chat.completions.create(
-        model=model,
-        messages=messages,
-        tools=TOOLS,
-        tool_choice="none",
-        temperature=0,
+        for tool_call in tool_calls:
+            tool_name = tool_call.function.name
+
+            if tool_name not in TOOL_REGISTRY:
+                raise ValueError(
+                    f"Unknown tool requested: {tool_name}"
+                )
+
+            arguments = _parse_tool_arguments(
+                tool_call.function.arguments,
+                tool_name=tool_name,
+            )
+
+            tool_function = TOOL_REGISTRY[tool_name]
+
+            if tool_name == "classify_document":
+                arguments = {
+                    "document_text": document_text
+                }
+
+            try:
+                tool_result = tool_function(**arguments)
+            except TypeError as exc:
+                raise ValueError(
+                    f"Invalid arguments for tool: {tool_name}"
+                ) from exc
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": tool_name,
+                    "content": json.dumps(tool_result),
+                }
+            )
+
+        tool_choice = "auto"
+
+    raise RuntimeError(
+        "Groq exceeded the maximum number of tool rounds."
     )
 
-    final_content = final_response.choices[0].message.content
 
-    if not final_content:
-        raise RuntimeError(
-            "Groq returned an empty final response."
-        )
-
-    return final_content
+def analyze_document_with_groq(
+    document_text: str,
+    *,
+    model: str = DEFAULT_MODEL,
+    client: Any | None = None,
+) -> str:
+    return classify_with_groq(
+        document_text=document_text,
+        model=model,
+        client=client,
+    )

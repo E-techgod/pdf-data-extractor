@@ -1,4 +1,5 @@
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, Any
+from src.pdf_data_extractor.schemas import InvoiceData
 
 
 DocumentType = Literal[
@@ -16,6 +17,7 @@ class DocumentClassification(TypedDict):
 
 
 def classify_document(document_text: str) -> DocumentClassification:
+
     """
     Classify a document using simple keyword rules.
 
@@ -80,4 +82,38 @@ def classify_document(document_text: str) -> DocumentClassification:
             f"Detected {scores[best_type]} keyword match(es) "
             f"associated with {best_type} documents."
         ),
+    }
+
+def extract_invoice_fields(
+    invoice_number: str | None = None,
+    vendor: str | None = None,
+    customer: str | None = None,
+    invoice_date: str | None = None,
+    due_date: str | None = None,
+    subtotal: float | None = None,
+    tax: float | None = None,
+    total: float | None = None,
+    currency: str = "USD",
+) -> dict[str, Any]:
+    """
+    Validate and return structured fields extracted from an invoice.
+
+    The LLM extracts the values from the document.
+    This Python function validates and normalizes those values.
+    """
+    invoice = InvoiceData(
+        invoice_number=invoice_number,
+        vendor=vendor,
+        customer=customer,
+        invoice_date=invoice_date,
+        due_date=due_date,
+        subtotal=subtotal,
+        tax=tax,
+        total=total,
+        currency=currency.upper(),
+    )
+
+    return {
+        "document_type": "invoice",
+        "data": invoice.model_dump(),
     }

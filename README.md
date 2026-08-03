@@ -6,20 +6,20 @@ A small Groq-powered agent that classifies documents (invoice, resume, receipt, 
 
 The classification logic itself is deliberately dumb and deterministic: `classify_document()` scores the document text against keyword lists per type and picks the winner. No LLM involved, no ambiguity, easy to test.
 
-The interesting part is `classify_with_groq()`, which wraps that function as a tool the model must call:
+The interesting part is `classify_with_groq()`, which wraps that function inside a small orchestration loop:
 
-1. Send the document to Groq (`llama-3.1-8b-instant`) with `tool_choice="required"` — the model has no choice but to call `classify_document`.
-2. Parse the tool call, run the real Python function, and feed the result back into the conversation as a `tool` message.
-3. Ask the model again, this time without forcing a tool call, so it can explain the classification in plain language.
+1. Send the document to Groq (`openai/gpt-oss-20b`) with `tool_choice` forcing `classify_document` on the first turn.
+2. Parse each tool call, run the real Python function, and feed the result back into the conversation as a `tool` message.
+3. Keep calling the model with `tool_choice="auto"` until it stops asking for tools and returns the final natural-language response.
 
-This two-call round trip (call → run tool → call again) is the core pattern of the project, and it's what most of the test suite is built around — making sure the tool-call plumbing (message shapes, argument parsing, error handling) actually holds up, independent of what the model says.
+This supports flows like classify → extract → final response instead of assuming a fixed two-call round trip. The tests focus on the tool-call plumbing itself: message shapes, argument parsing, repeated tool execution, and loop termination.
 
 ## Project layout
 
 ```
 main.py                              # entry point — classifies a hardcoded sample invoice
 src/pdf_data_extractor/
-  agent.py           # classify_with_groq() — the two-call Groq tool-calling flow
+  agent.py           # classify_with_groq() — Groq tool orchestration loop
   tools.py           # classify_document() — the deterministic keyword classifier
   tool_registry.py   # maps tool name -> Python function
   tool_schemas.py    # JSON schema for the classify_document tool
@@ -53,8 +53,8 @@ flowchart TD
         KG --> CR[Structured classification result<br/>document_type + reason]
 
         CR --> TM[Tool message appended<br/>to conversation]
-        TM --> G2[Groq Chat Completion<br/>Call 2]
-        G2 --> FR[Final natural-language response]
+        TM --> GL[Groq orchestration loop<br/>additional tool rounds as needed]
+        GL --> FR[Final natural-language response]
     end
 
     FR --> O[Console output]
@@ -90,7 +90,7 @@ uv run main.py
 uv run pytest
 ```
 
-15 tests, all offline — the Groq client is mocked in `test_agent.py`, so nothing here needs a live API key to run.
+16 tests, all offline — the Groq client is mocked in `test_agent.py`, so nothing here needs a live API key to run.
 
 ## Status
 

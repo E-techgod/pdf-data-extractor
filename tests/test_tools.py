@@ -1,9 +1,12 @@
 import pytest
+from pydantic import ValidationError
 
 from src.pdf_data_extractor.agent import (
     _build_assistant_tool_message,
 )
 from src.pdf_data_extractor.tools import classify_document
+
+from src.pdf_data_extractor.tools import extract_invoice_fields
 
 
 def test_classifies_invoice() -> None:
@@ -122,3 +125,78 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
             }
         ],
     }
+
+def test_extracts_invoice_fields() -> None:
+    result = extract_invoice_fields(
+        invoice_number="INV-1001",
+        vendor="Example Services LLC",
+        customer="Elias Arellano",
+        invoice_date="August 1, 2026",
+        due_date="August 15, 2026",
+        subtotal=500.00,
+        tax=41.25,
+        total=541.25,
+        currency="usd",
+    )
+
+    assert result["document_type"] == "invoice"
+
+    invoice = result["data"]
+
+    assert invoice["invoice_number"] == "INV-1001"
+    assert invoice["vendor"] == "Example Services LLC"
+    assert invoice["total"] == 541.25
+    assert invoice["currency"] == "USD"
+
+
+def test_invoice_allows_missing_fields() -> None:
+    result = extract_invoice_fields(
+        vendor="Example Services LLC",
+        total=125.00,
+    )
+
+    invoice = result["data"]
+
+    assert invoice["vendor"] == "Example Services LLC"
+    assert invoice["invoice_number"] is None
+    assert invoice["total"] == 125.00
+
+
+def test_invoice_rejects_negative_total() -> None:
+    with pytest.raises(ValidationError):
+        extract_invoice_fields(
+            vendor="Example Services LLC",
+            total=-50.00,
+        )
+
+from src.pdf_data_extractor.agent import analyze_document_with_groq
+
+
+def main() -> None:
+    document = """
+    INVOICE
+
+    High End Locksmiths, LLC
+    Invoice Number: 32107
+    Invoice Date: July 29, 2026
+
+    Bill To:
+    Elias Arellano Campos
+
+    Service:
+    Volkswagen Jetta 2021 replacement key
+
+    Subtotal: $475.00
+    Tax: $40.00
+    Total Due: $515.00
+
+    Payment Due: August 5, 2026
+    """
+
+    result = analyze_document_with_groq(document)
+
+    print(result)
+
+
+if __name__ == "__main__":
+    main()

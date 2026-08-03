@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from pdf_data_extractor.pdf_loader import extract_pdf_text
+from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 
 
 def test_rejects_missing_pdf(tmp_path: Path) -> None:
@@ -58,7 +58,7 @@ def test_extracts_text_from_all_pages(
     mock_reader.pages = [first_page, second_page]
 
     with patch(
-        "pdf_data_extractor.pdf_loader.PdfReader",
+        "src.pdf_data_extractor.pdf_loader.PdfReader",
         return_value=mock_reader,
     ):
         result = extract_pdf_text(pdf_file)
@@ -87,7 +87,7 @@ def test_skips_pages_without_text(
     mock_reader.pages = [empty_page, text_page]
 
     with patch(
-        "pdf_data_extractor.pdf_loader.PdfReader",
+        "src.pdf_data_extractor.pdf_loader.PdfReader",
         return_value=mock_reader,
     ):
         result = extract_pdf_text(pdf_file)
@@ -110,7 +110,7 @@ def test_rejects_pdf_without_extractable_text(
     mock_reader.pages = [page]
 
     with patch(
-        "pdf_data_extractor.pdf_loader.PdfReader",
+        "src.pdf_data_extractor.pdf_loader.PdfReader",
         return_value=mock_reader,
     ):
         with pytest.raises(
