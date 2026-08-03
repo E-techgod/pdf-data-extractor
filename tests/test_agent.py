@@ -6,6 +6,7 @@ import pytest
 from src.pdf_data_extractor.agent import (
     INVOICE_EXTRACTION_HINT,
     RECEIPT_EXTRACTION_HINT,
+    REPORT_EXTRACTION_HINT,
     RESUME_EXTRACTION_HINT,
     UNREGISTERED_EXTRACTOR_WARNING,
     classify_pdf_with_groq,
@@ -15,6 +16,7 @@ from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
     InvoiceData,
     ReceiptData,
+    ReportData,
     ResumeData,
 )
 from src.pdf_data_extractor.tool_schemas import (
@@ -154,7 +156,7 @@ def test_routes_to_matching_specialized_extractor_only() -> None:
     assert RESUME_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
-def test_unsupported_report_returns_empty_data_with_warning() -> None:
+def test_supported_report_route_returns_validated_data() -> None:
     classify_call = make_tool_call(
         name="classify_document",
         arguments=(
@@ -162,9 +164,24 @@ def test_unsupported_report_returns_empty_data_with_warning() -> None:
         ),
         call_id="call_classify",
     )
+    extract_call = make_tool_call(
+        name="extract_report_fields",
+        arguments=(
+            '{"title": "Customer Retention Analysis", '
+            '"author": "Elias Arellano Campos", '
+            '"organization": "American Smart Business LLC", '
+            '"report_date": "August 1, 2026", '
+            '"executive_summary": "Retention improved during the quarter.", '
+            '"methodology": "We analyzed quarterly transaction and support data.", '
+            '"findings": ["Customer retention improved by 12%."], '
+            '"recommendations": ["Continue monitoring retention monthly."], '
+            '"conclusion": "The strategy is working."}'
+        ),
+    )
 
     client = make_fake_client(
-        make_response(tool_calls=[classify_call])
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
     )
 
     result = classify_with_groq(
@@ -173,13 +190,26 @@ def test_unsupported_report_returns_empty_data_with_warning() -> None:
     )
 
     assert result.document_type == "report"
-    assert result.model_dump()["data"] == {}
-    assert result.warnings == [
-        UNREGISTERED_EXTRACTOR_WARNING.format(
-            document_type="report"
-        )
+    assert isinstance(result.data, ReportData)
+    assert result.data.title == "Customer Retention Analysis"
+    assert result.data.author == "Elias Arellano Campos"
+    assert result.data.findings == [
+        "Customer retention improved by 12%."
     ]
-    assert client.chat.completions.create.call_count == 1
+    assert "document_type" not in result.data.model_dump()
+    assert client.chat.completions.create.call_count == 2
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    assert len(second_call.kwargs["tools"]) == 1
+    assert (
+        second_call.kwargs["tools"][0]["function"]["name"]
+        == "extract_report_fields"
+    )
+    assert second_call.kwargs["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "extract_report_fields"},
+    }
+    assert REPORT_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
 def test_unsupported_types_make_only_one_groq_call() -> None:

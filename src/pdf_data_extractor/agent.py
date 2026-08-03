@@ -47,6 +47,12 @@ RECEIPT_EXTRACTION_HINT = (
     "line items, use item name only in name, quantity only in quantity or "
     "qty, and amount only in amount."
 )
+REPORT_EXTRACTION_HINT = (
+    "For report extraction, keep title, author, organization, report date, "
+    "executive summary, methodology, findings, recommendations, and conclusion "
+    "separated by meaning. Do not merge multiple sections into one field. "
+    "Use findings and recommendations only for list-style report points."
+)
 
 def _parse_tool_arguments(
     raw_arguments: Any,
@@ -286,6 +292,8 @@ def classify_with_groq(
                     if document_type == "invoice"
                     else RECEIPT_EXTRACTION_HINT
                     if document_type == "receipt"
+                    else REPORT_EXTRACTION_HINT
+                    if document_type == "report"
                     else ""
                 )
             ),
