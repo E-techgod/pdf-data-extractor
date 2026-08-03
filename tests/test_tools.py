@@ -14,6 +14,10 @@ from src.pdf_data_extractor.schemas import (
     ResumeExperience,
     ResumeData,
 )
+from src.pdf_data_extractor.tool_schemas import (
+    EXTRACT_INVOICE_FIELDS_TOOL,
+    EXTRACT_RESUME_FIELDS_TOOL,
+)
 from src.pdf_data_extractor.tools import (
     classify_document,
     extract_generic_fields,
@@ -159,6 +163,19 @@ def test_invoice_allows_missing_fields() -> None:
     assert result.data.total == 125.00
 
 
+def test_invoice_keeps_billed_party_separate_from_other_entities() -> None:
+    result = extract_invoice_fields(
+        vendor="Example Services LLC",
+        customer="Acme Corp",
+        invoice_number="INV-2001",
+    )
+
+    assert result.data.vendor == "Example Services LLC"
+    assert result.data.customer == "Acme Corp"
+    assert "Billing Department" not in (result.data.customer or "")
+    assert "123 Main St" not in (result.data.customer or "")
+
+
 def test_invoice_rejects_negative_total() -> None:
     with pytest.raises(ValidationError):
         extract_invoice_fields(
@@ -235,6 +252,56 @@ def test_resume_allows_missing_fields() -> None:
     assert result.data.full_name == "Elias Arellano Campos"
     assert result.data.email is None
     assert result.data.education == []
+
+
+def test_resume_keeps_education_fields_separate() -> None:
+    result = extract_resume_fields(
+        education=[
+            {
+                "school": "University of Houston",
+                "degree": "Bachelor of Science",
+                "field": "Computer Science",
+                "minor": "Mathematics",
+                "graduation_date": "May 2026",
+            }
+        ]
+    )
+
+    education = result.data.education[0]
+
+    assert education.school == "University of Houston"
+    assert education.degree == "Bachelor of Science"
+    assert education.field == "Computer Science"
+    assert education.minor == "Mathematics"
+    assert education.graduation_date == "May 2026"
+    assert "Bachelor" not in (education.school or "")
+    assert "2026" not in (education.school or "")
+
+
+def test_resume_keeps_experience_fields_separate() -> None:
+    result = extract_resume_fields(
+        experience=[
+            {
+                "company": "American Smart Business LLC",
+                "title": "AI Systems Implementation Associate",
+                "dates": "August 2025 - July 2026",
+                "location": "Houston, Texas",
+                "responsibilities": [
+                    "Built AI workflows."
+                ],
+            }
+        ]
+    )
+
+    experience = result.data.experience[0]
+
+    assert experience.company == "American Smart Business LLC"
+    assert experience.title == "AI Systems Implementation Associate"
+    assert experience.dates == "August 2025 - July 2026"
+    assert experience.location == "Houston, Texas"
+    assert "Associate" not in (experience.company or "")
+    assert "2026" not in (experience.company or "")
+    assert "Texas" not in (experience.company or "")
 
 
 def test_resume_does_not_share_mutable_lists() -> None:
@@ -458,3 +525,23 @@ def test_unsupported_result_serializes_empty_data_object() -> None:
     )
 
     assert result.model_dump()["data"] == {}
+
+
+def test_resume_tool_schema_forbids_field_collapsing() -> None:
+    description = EXTRACT_RESUME_FIELDS_TOOL["function"]["description"]
+    education_description = EXTRACT_RESUME_FIELDS_TOOL["function"]["parameters"]["properties"]["education"]["items"]["anyOf"][1]["properties"]["school"]["description"]
+    experience_description = EXTRACT_RESUME_FIELDS_TOOL["function"]["parameters"]["properties"]["experience"]["items"]["anyOf"][1]["properties"]["company"]["description"]
+
+    assert "Do not concatenate multiple semantic fields" in description
+    assert "Do not include degree" in education_description
+    assert "Do not include title, dates, or location" in experience_description
+
+
+def test_invoice_tool_schema_forbids_field_collapsing() -> None:
+    description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["description"]
+    vendor_description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["parameters"]["properties"]["vendor"]["description"]
+    customer_description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["parameters"]["properties"]["customer"]["description"]
+
+    assert "Do not concatenate multiple semantic fields" in description
+    assert "Do not include customer names" in vendor_description
+    assert "Billed party only" in customer_description

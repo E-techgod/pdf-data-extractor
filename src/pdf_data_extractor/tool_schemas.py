@@ -50,7 +50,9 @@ EXTRACT_INVOICE_FIELDS_TOOL: dict[str, Any] = {
             "Extract structured invoice information from a document "
             "that has already been identified as an invoice. "
             "Use null or omit a field when the value is not present. "
-            "Never invent missing information."
+            "Never invent missing information. Do not concatenate multiple "
+            "semantic fields into one value. Return only the issuing entity "
+            "in vendor and only the billed party in customer."
         ),
         "parameters": {
             "type": "object",
@@ -61,11 +63,20 @@ EXTRACT_INVOICE_FIELDS_TOOL: dict[str, Any] = {
                 },
                 "vendor": {
                     "type": ["string", "null"],
-                    "description": "Business or person issuing the invoice.",
+                    "description": (
+                        "Issuing business or seller only. Do not include "
+                        "customer names, addresses, service provider labels, "
+                        "departments, or unrelated organizations."
+                    ),
                 },
                 "customer": {
                     "type": ["string", "null"],
-                    "description": "Customer or organization being billed.",
+                    "description": (
+                        "Billed party only, preferably the entity under "
+                        "'Bill To'. Do not include addresses, service "
+                        "provider labels, departments, or unrelated "
+                        "organization names."
+                    ),
                 },
                 "invoice_date": {
                     "type": ["string", "null"],
@@ -116,7 +127,10 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
             "Extract structured candidate information from a document "
             "that has been identified as a resume. Use only information "
             "explicitly present in the document. Never infer or invent "
-            "missing details."
+            "missing details. Do not concatenate multiple semantic fields "
+            "into one value. Split school, degree, field, minor, graduation "
+            "date, company, title, dates, and location into their matching "
+            "properties."
         ),
         "parameters": {
             "type": "object",
@@ -168,23 +182,34 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                                 "properties": {
                                     "school": {
                                         "type": ["string", "null"],
-                                        "description": "School or institution name.",
+                                        "description": (
+                                            "Institution name only. Do not "
+                                            "include degree, field, minor, "
+                                            "or graduation date."
+                                        ),
                                     },
                                     "degree": {
                                         "type": ["string", "null"],
-                                        "description": "Degree name when shown.",
+                                        "description": (
+                                            "Degree type only, such as "
+                                            "'Bachelor of Science'."
+                                        ),
                                     },
                                     "field": {
                                         "type": ["string", "null"],
-                                        "description": "Field of study when shown.",
+                                        "description": (
+                                            "Major or field of study only."
+                                        ),
                                     },
                                     "minor": {
                                         "type": ["string", "null"],
-                                        "description": "Minor when shown.",
+                                        "description": "Minor only.",
                                     },
                                     "graduation_date": {
                                         "type": ["string", "null"],
-                                        "description": "Graduation date exactly as shown.",
+                                        "description": (
+                                            "Graduation date only, exactly as shown."
+                                        ),
                                     },
                                 },
                                 "required": [],
@@ -209,19 +234,24 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                                 "properties": {
                                     "company": {
                                         "type": ["string", "null"],
-                                        "description": "Employer or organization name.",
+                                        "description": (
+                                            "Organization name only. Do not "
+                                            "include title, dates, or location."
+                                        ),
                                     },
                                     "title": {
                                         "type": ["string", "null"],
-                                        "description": "Job title when shown.",
+                                        "description": "Job title only.",
                                     },
                                     "dates": {
                                         "type": ["string", "null"],
-                                        "description": "Employment dates exactly as shown.",
+                                        "description": (
+                                            "Employment date range only, exactly as shown."
+                                        ),
                                     },
                                     "location": {
                                         "type": ["string", "null"],
-                                        "description": "Location exactly as shown.",
+                                        "description": "Location only, exactly as shown.",
                                     },
                                     "responsibilities": {
                                         "type": ["array", "null"],

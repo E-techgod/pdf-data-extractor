@@ -21,14 +21,24 @@ from src.pdf_data_extractor.tool_schemas import (
     CLASSIFY_DOCUMENT_TOOL,
 )
 
-DEFAULT_MODEL = "openai/gpt-oss-20b"
+DEFAULT_MODEL = "llama-3.1-8b-instant"
 UNREGISTERED_EXTRACTOR_WARNING = (
     "No specialized extractor is registered for document_type "
     "'{document_type}'."
 )
 RESUME_EXTRACTION_HINT = (
     "For resume extraction, return education and experience as arrays "
-    "of plain strings only. Do not emit nested objects for those fields."
+    "of plain strings or well-structured objects only. Do not concatenate "
+    "multiple semantic fields into one value. Split institution, degree, "
+    "field, minor, and graduation date into their matching properties. "
+    "Split company, title, dates, location, and responsibilities into "
+    "their matching properties."
+)
+INVOICE_EXTRACTION_HINT = (
+    "For invoice extraction, do not concatenate multiple semantic fields "
+    "into one value. Return only the issuing entity in vendor and only the "
+    "billed party in customer. Do not include addresses, service provider "
+    "labels, departments, or unrelated organization names in vendor or customer."
 )
 
 def _parse_tool_arguments(
@@ -265,6 +275,8 @@ def classify_with_groq(
                 + (
                     RESUME_EXTRACTION_HINT
                     if document_type == "resume"
+                    else INVOICE_EXTRACTION_HINT
+                    if document_type == "invoice"
                     else ""
                 )
             ),

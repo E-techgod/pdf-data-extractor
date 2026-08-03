@@ -4,6 +4,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.pdf_data_extractor.agent import (
+    INVOICE_EXTRACTION_HINT,
+    RESUME_EXTRACTION_HINT,
     UNREGISTERED_EXTRACTOR_WARNING,
     classify_pdf_with_groq,
     classify_with_groq,
@@ -147,6 +149,7 @@ def test_routes_to_matching_specialized_extractor_only() -> None:
         "type": "function",
         "function": {"name": "extract_resume_fields"},
     }
+    assert RESUME_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
 def test_unsupported_report_returns_empty_data_with_warning() -> None:
@@ -234,6 +237,32 @@ def test_ignores_assistant_prose_and_uses_validated_classification_tool_result()
 
     assert result.document_type == "invoice"
     assert isinstance(result.data, InvoiceData)
+
+
+def test_invoice_route_includes_strict_invoice_field_guidance() -> None:
+    classify_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            '{"document_type": "invoice", "reason": "Contains bill to and total."}'
+        ),
+    )
+    extract_call = make_tool_call(
+        name="extract_invoice_fields",
+        arguments='{"vendor": "Example Services LLC", "customer": "Acme Corp"}',
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+    )
+
+    classify_with_groq(
+        "Invoice Number: 123. Bill To: Acme Corp. Vendor: Example Services LLC.",
+        client=client,
+    )
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    assert INVOICE_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
 def test_rejects_empty_document() -> None:
