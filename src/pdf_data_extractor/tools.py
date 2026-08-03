@@ -8,6 +8,8 @@ from src.pdf_data_extractor.schemas import (
     ReportData,
     ReceiptData,
     ReceiptItem,
+    ResumeEducation,
+    ResumeExperience,
     ResumeData,
 )
 
@@ -70,8 +72,8 @@ def extract_resume_fields(
     location: str | None = None,
     professional_summary: str | None = None,
     skills: list[str] | None = None,
-    education: list[str] | None = None,
-    experience: list[str] | None = None,
+    education: list[dict[str, Any] | str] | None = None,
+    experience: list[dict[str, Any] | str] | None = None,
 ) -> DocumentExtractionResult:
     """
     Validate and return structured fields extracted from a resume.
@@ -79,6 +81,30 @@ def extract_resume_fields(
     The LLM identifies the resume information.
     This function validates and normalizes the result.
     """
+    normalized_education = [
+        ResumeEducation(school=item)
+        if isinstance(item, str)
+        else ResumeEducation.model_validate(item)
+        for item in (education or [])
+    ]
+    normalized_experience = [
+        ResumeExperience(company=item)
+        if isinstance(item, str)
+        else ResumeExperience.model_validate(
+            {
+                "company": item.get("company"),
+                "title": item.get("title"),
+                "dates": item.get("dates"),
+                "location": item.get("location"),
+                "responsibilities": item.get(
+                    "responsibilities"
+                )
+                or [],
+            }
+        )
+        for item in (experience or [])
+    ]
+
     resume = ResumeData(
         full_name=full_name,
         email=email,
@@ -86,8 +112,8 @@ def extract_resume_fields(
         location=location,
         professional_summary=professional_summary,
         skills=skills or [],
-        education=education or [],
-        experience=experience or [],
+        education=normalized_education,
+        experience=normalized_experience,
     )
 
     return DocumentExtractionResult(

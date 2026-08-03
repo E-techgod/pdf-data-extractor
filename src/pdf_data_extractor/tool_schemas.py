@@ -159,7 +159,38 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                 "education": {
                     "type": ["array", "null"],
                     "items": {
-                        "type": "string",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "school": {
+                                        "type": ["string", "null"],
+                                        "description": "School or institution name.",
+                                    },
+                                    "degree": {
+                                        "type": ["string", "null"],
+                                        "description": "Degree name when shown.",
+                                    },
+                                    "field": {
+                                        "type": ["string", "null"],
+                                        "description": "Field of study when shown.",
+                                    },
+                                    "minor": {
+                                        "type": ["string", "null"],
+                                        "description": "Minor when shown.",
+                                    },
+                                    "graduation_date": {
+                                        "type": ["string", "null"],
+                                        "description": "Graduation date exactly as shown.",
+                                    },
+                                },
+                                "required": [],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                     "description": (
                         "Education entries preserving school, degree, "
@@ -169,7 +200,43 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                 "experience": {
                     "type": ["array", "null"],
                     "items": {
-                        "type": "string",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "company": {
+                                        "type": ["string", "null"],
+                                        "description": "Employer or organization name.",
+                                    },
+                                    "title": {
+                                        "type": ["string", "null"],
+                                        "description": "Job title when shown.",
+                                    },
+                                    "dates": {
+                                        "type": ["string", "null"],
+                                        "description": "Employment dates exactly as shown.",
+                                    },
+                                    "location": {
+                                        "type": ["string", "null"],
+                                        "description": "Location exactly as shown.",
+                                    },
+                                    "responsibilities": {
+                                        "type": ["array", "null"],
+                                        "items": {
+                                            "type": "string",
+                                        },
+                                        "description": (
+                                            "Responsibilities or achievements explicitly listed."
+                                        ),
+                                    },
+                                },
+                                "required": [],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                     "description": (
                         "Work experience entries preserving company, title, "

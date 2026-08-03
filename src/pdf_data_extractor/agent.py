@@ -30,6 +30,10 @@ UNREGISTERED_EXTRACTOR_WARNING = (
     "No specialized extractor is registered for document_type "
     "'{document_type}'. Returning an empty typed result."
 )
+RESUME_EXTRACTION_HINT = (
+    "For resume extraction, return education and experience as arrays "
+    "of plain strings only. Do not emit nested objects for those fields."
+)
 
 
 EMPTY_DATA_BY_DOCUMENT_TYPE = {
@@ -275,44 +279,21 @@ def classify_with_groq(
                 "Extract only the requested structured fields from the "
                 f"{document_type} document. Use only information explicitly "
                 "present in the document. Omit unavailable optional fields "
-                "or use null. Do not provide prose outside the tool call."
+                "or use null. Do not provide prose outside the tool call. "
+                + (
+                    RESUME_EXTRACTION_HINT
+                    if document_type == "resume"
+                    else ""
+                )
             ),
         },
         {
             "role": "user",
-            "content": document_text,
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "tool_calls": [
-                {
-                    "id": getattr(
-                        classification_tool_call,
-                        "id",
-                        "call_classify",
-                    ),
-                    "type": getattr(
-                        classification_tool_call,
-                        "type",
-                        "function",
-                    ),
-                    "function": {
-                        "name": "classify_document",
-                        "arguments": classification_tool_call.function.arguments,
-                    },
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "tool_call_id": getattr(
-                classification_tool_call,
-                "id",
-                "call_classify",
+            "content": (
+                f"The document has already been classified as {document_type}. "
+                "Use the available extraction tool only.\n\n"
+                f"{document_text}"
             ),
-            "name": "classify_document",
-            "content": classification_result.model_dump_json(),
         },
     ]
 

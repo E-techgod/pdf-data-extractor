@@ -31,6 +31,26 @@ class InvoiceData(BaseModel):
     currency: str = "USD"
 
 
+class ResumeEducation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    school: str | None = None
+    degree: str | None = None
+    field: str | None = None
+    minor: str | None = None
+    graduation_date: str | None = None
+
+
+class ResumeExperience(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    company: str | None = None
+    title: str | None = None
+    dates: str | None = None
+    location: str | None = None
+    responsibilities: list[str] = Field(default_factory=list)
+
+
 class ResumeData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -41,8 +61,8 @@ class ResumeData(BaseModel):
     location: str | None = None
     professional_summary: str | None = None
     skills: list[str] = Field(default_factory=list)
-    education: list[str] = Field(default_factory=list)
-    experience: list[str] = Field(default_factory=list)
+    education: list[ResumeEducation] = Field(default_factory=list)
+    experience: list[ResumeExperience] = Field(default_factory=list)
 
 
 class ReceiptItem(BaseModel):

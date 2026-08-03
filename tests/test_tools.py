@@ -10,6 +10,8 @@ from src.pdf_data_extractor.schemas import (
     ReceiptItem,
     ReceiptData,
     ReportData,
+    ResumeEducation,
+    ResumeExperience,
     ResumeData,
 )
 from src.pdf_data_extractor.tools import (
@@ -180,11 +182,22 @@ def test_extracts_resume_fields() -> None:
             "FastAPI",
         ],
         education=[
-            "B.S. Computer Science, University of Houston, May 2026"
+            {
+                "school": "University of Houston",
+                "degree": "B.S.",
+                "field": "Computer Science",
+                "graduation_date": "May 2026",
+            }
         ],
         experience=[
-            "AI Systems Implementation Associate, "
-            "American Smart Business LLC, 2026"
+            {
+                "company": "American Smart Business LLC",
+                "title": "AI Systems Implementation Associate",
+                "dates": "2026",
+                "responsibilities": [
+                    "Built AI workflows."
+                ],
+            }
         ],
     )
 
@@ -193,8 +206,22 @@ def test_extracts_resume_fields() -> None:
     assert result.data.full_name == "Elias Arellano Campos"
     assert result.data.email == "elias@example.com"
     assert "Python" in result.data.skills
-    assert len(result.data.education) == 1
-    assert len(result.data.experience) == 1
+    assert result.data.education == [
+        ResumeEducation(
+            school="University of Houston",
+            degree="B.S.",
+            field="Computer Science",
+            graduation_date="May 2026",
+        )
+    ]
+    assert result.data.experience == [
+        ResumeExperience(
+            company="American Smart Business LLC",
+            title="AI Systems Implementation Associate",
+            dates="2026",
+            responsibilities=["Built AI workflows."],
+        )
+    ]
 
 
 def test_resume_allows_missing_fields() -> None:
