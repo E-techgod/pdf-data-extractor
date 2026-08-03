@@ -131,7 +131,9 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
             "into one value. Split school, degree, field, minor, graduation "
             "date, company, title, dates, and location into their matching "
             "properties. Capture the visible resume header contact block into "
-            "full_name, email, phone, and location whenever present."
+            "full_name, email, phone, and location whenever present. When a "
+            "labeled skills section is present, extract those skills into the "
+            "skills array and split comma-separated skills into separate items."
         ),
         "parameters": {
             "type": "object",
@@ -176,7 +178,9 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                         "type": "string",
                     },
                     "description": (
-                        "Technical and professional skills explicitly listed."
+                        "Technical and professional skills explicitly listed. "
+                        "If a labeled skills section contains comma-separated "
+                        "values, split them into separate array entries."
                     ),
                 },
                 "education": {

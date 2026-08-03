@@ -35,6 +35,7 @@
       "email": "elias.arellano@example.com",
       "phone": "(832) 555-0198",
       "location": "Houston, Texas",
+      "skills": ["Python", "SQL", "PyTorch", "FastAPI", "Pydantic", "pytest"],
       "education[0].school": "University of Houston",
       "education[0].degree": "Bachelor of Science",
       "education[0].field": "Computer Science",
