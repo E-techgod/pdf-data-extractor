@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
@@ -6,6 +6,7 @@ from src.pdf_data_extractor.schemas import (
     InvoiceData,
     ReportData,
     ReceiptData,
+    ReceiptItem,
     ResumeData,
 )
 
@@ -164,7 +165,7 @@ def extract_receipt_fields(
     receipt_number: str | None = None,
     transaction_date: str | None = None,
     transaction_time: str | None = None,
-    items: list[str] | None = None,
+    items: list[dict[str, Any] | str] | None = None,
     subtotal: float | None = None,
     tax: float | None = None,
     total: float | None = None,
@@ -178,12 +179,28 @@ def extract_receipt_fields(
     The LLM extracts the values from the document.
     This Python function validates and normalizes those values.
     """
+    normalized_items = [
+        ReceiptItem(name=item)
+        if isinstance(item, str)
+        else ReceiptItem.model_validate(
+            {
+                "name": item.get("name"),
+                "quantity": item.get(
+                    "quantity",
+                    item.get("qty"),
+                ),
+                "amount": item.get("amount"),
+            }
+        )
+        for item in (items or [])
+    ]
+
     receipt = ReceiptData(
         merchant=merchant,
         receipt_number=receipt_number,
         transaction_date=transaction_date,
         transaction_time=transaction_time,
-        items=items or [],
+        items=normalized_items,
         subtotal=subtotal,
         tax=tax,
         total=total,

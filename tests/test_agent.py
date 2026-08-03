@@ -348,22 +348,35 @@ def test_rejects_non_object_tool_arguments() -> None:
         )
 
 
-def test_rejects_empty_final_response() -> None:
+def test_recovers_from_empty_final_response_after_classification() -> None:
     tool_call = make_tool_call(arguments="{}")
+    extract_call = make_tool_call(
+        name="extract_invoice_fields",
+        arguments='{"invoice_number": "123", "total": 50}',
+        call_id="call_extract",
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(content=None),
+        make_response(tool_calls=[extract_call]),
+        make_response(content="ignored"),
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match="Groq returned an empty final response",
-    ):
-        classify_with_groq(
-            "Invoice Number: 123. Amount Due: $50.",
-            client=client,
-        )
+    result = classify_with_groq(
+        "Invoice Number: 123. Amount Due: $50.",
+        client=client,
+    )
+
+    assert result.document_type == "invoice"
+    assert isinstance(result.data, InvoiceData)
+    assert result.data.invoice_number == "123"
+    assert client.chat.completions.create.call_args_list[2].kwargs[
+        "tool_choice"
+    ] == {
+        "type": "function",
+        "function": {"name": "extract_invoice_fields"},
+    }
 
 
 def test_rejects_non_json_final_response() -> None:

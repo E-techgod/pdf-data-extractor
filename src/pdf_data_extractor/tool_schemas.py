@@ -126,7 +126,7 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                     ),
                 },
                 "skills": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "string",
                     },
@@ -135,7 +135,7 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                     ),
                 },
                 "education": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "string",
                     },
@@ -145,7 +145,7 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                     ),
                 },
                 "experience": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "string",
                     },
@@ -195,9 +195,39 @@ EXTRACT_RECEIPT_FIELDS_TOOL: dict[str, Any] = {
                     ),
                 },
                 "items": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
-                        "type": "string",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": ["string", "null"],
+                                        "description": "Line item name.",
+                                    },
+                                    "quantity": {
+                                        "type": ["number", "null"],
+                                        "minimum": 0,
+                                        "description": "Item quantity when shown.",
+                                    },
+                                    "qty": {
+                                        "type": ["number", "null"],
+                                        "minimum": 0,
+                                        "description": "Item quantity when shown.",
+                                    },
+                                    "amount": {
+                                        "type": ["number", "null"],
+                                        "minimum": 0,
+                                        "description": "Line item amount when shown.",
+                                    },
+                                },
+                                "required": [],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                     "description": (
                         "Line items explicitly listed on the receipt."
@@ -283,14 +313,14 @@ EXTRACT_REPORT_FIELDS_TOOL: dict[str, Any] = {
                     ),
                 },
                 "findings": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "string",
                     },
                     "description": "Findings explicitly listed in the report.",
                 },
                 "recommendations": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "string",
                     },
@@ -345,7 +375,7 @@ EXTRACT_GENERIC_FIELDS_TOOL: dict[str, Any] = {
                     ),
                 },
                 "key_points": {
-                    "type": "array",
+                    "type": ["array", "null"],
                     "items": {
                         "type": "string",
                     },

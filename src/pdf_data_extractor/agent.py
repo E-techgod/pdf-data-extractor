@@ -22,6 +22,13 @@ EXTRACTION_TOOL_NAMES = {
     "extract_report_fields",
     "extract_generic_fields",
 }
+EXTRACTION_TOOL_BY_DOCUMENT_TYPE = {
+    "invoice": "extract_invoice_fields",
+    "resume": "extract_resume_fields",
+    "receipt": "extract_receipt_fields",
+    "report": "extract_report_fields",
+    "generic": "extract_generic_fields",
+}
 
 
 def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
@@ -106,6 +113,15 @@ def _parse_final_result(
         ) from exc
 
 
+def _build_tool_choice(
+    tool_name: str,
+) -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {"name": tool_name},
+    }
+
+
 def classify_pdf_with_groq(
     file_path: str | Path,
     *,
@@ -174,6 +190,7 @@ def classify_with_groq(
     last_extraction_result: (
         DocumentExtractionResult | None
     ) = None
+    pending_extraction_tool: str | None = None
 
     for round_index in range(MAX_TOOL_ROUNDS + 1):
         response = groq_client.chat.completions.create(
@@ -197,6 +214,13 @@ def classify_with_groq(
                 return last_extraction_result
 
             final_content = assistant_message.content
+
+            if not final_content and pending_extraction_tool is not None:
+                tool_choice = _build_tool_choice(
+                    pending_extraction_tool
+                )
+                pending_extraction_tool = None
+                continue
 
             if not final_content:
                 raise RuntimeError(
@@ -251,6 +275,14 @@ def classify_with_groq(
                 )
             ):
                 last_extraction_result = tool_result
+                pending_extraction_tool = None
+
+            if tool_name == "classify_document":
+                pending_extraction_tool = (
+                    EXTRACTION_TOOL_BY_DOCUMENT_TYPE[
+                        tool_result["document_type"]
+                    ]
+                )
 
             messages.append(
                 {
@@ -262,6 +294,8 @@ def classify_with_groq(
                     ),
                 }
             )
+
+        tool_choice = "auto"
     raise RuntimeError(
         "Groq exceeded the maximum number of tool rounds."
     )

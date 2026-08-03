@@ -40,6 +40,14 @@ class ResumeData(BaseModel):
     experience: list[str] = Field(default_factory=list)
 
 
+class ReceiptItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    quantity: float | None = Field(default=None, ge=0)
+    amount: float | None = Field(default=None, ge=0)
+
+
 class ReceiptData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -48,7 +56,7 @@ class ReceiptData(BaseModel):
     receipt_number: str | None = None
     transaction_date: str | None = None
     transaction_time: str | None = None
-    items: list[str] = Field(default_factory=list)
+    items: list[ReceiptItem] = Field(default_factory=list)
     subtotal: float | None = Field(default=None, ge=0)
     tax: float | None = Field(default=None, ge=0)
     total: float | None = Field(default=None, ge=0)

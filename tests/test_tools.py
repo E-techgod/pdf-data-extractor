@@ -6,6 +6,7 @@ from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
     GenericDocumentData,
     InvoiceData,
+    ReceiptItem,
     ReceiptData,
     ReportData,
     ResumeData,
@@ -245,7 +246,18 @@ def test_extracts_receipt_fields() -> None:
         receipt_number="RCPT-1001",
         transaction_date="August 1, 2026",
         transaction_time="14:35",
-        items=["Milk", "Bread"],
+        items=[
+            {
+                "name": "Milk",
+                "quantity": 1,
+                "amount": 4.25,
+            },
+            {
+                "name": "Bread",
+                "quantity": 1,
+                "amount": 3.15,
+            },
+        ],
         subtotal=12.50,
         tax=1.03,
         total=13.53,
@@ -261,6 +273,18 @@ def test_extracts_receipt_fields() -> None:
     assert result.data.total == 13.53
     assert result.data.payment_method == "Visa"
     assert result.data.currency == "USD"
+    assert result.data.items == [
+        ReceiptItem(
+            name="Milk",
+            quantity=1,
+            amount=4.25,
+        ),
+        ReceiptItem(
+            name="Bread",
+            quantity=1,
+            amount=3.15,
+        ),
+    ]
 
 
 def test_receipt_allows_missing_fields() -> None:
@@ -294,7 +318,9 @@ def test_receipt_does_not_share_mutable_lists() -> None:
     assert isinstance(first_result.data, ReceiptData)
     assert isinstance(second_result.data, ReceiptData)
 
-    first_result.data.items.append("Milk")
+    first_result.data.items.append(
+        ReceiptItem(name="Milk")
+    )
 
     assert second_result.data.items == []
 
