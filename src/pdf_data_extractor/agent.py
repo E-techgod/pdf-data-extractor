@@ -1,13 +1,14 @@
 import json
-from typing import Any
-
 from groq import Groq
+from typing import Any
+from pathlib import Path
 
 from src.pdf_data_extractor.config import get_groq_api_key
 from src.pdf_data_extractor.tool_registry import TOOL_REGISTRY
 from src.pdf_data_extractor.tool_schemas import TOOLS
+from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 
-DEFAULT_MODEL = "llama-3.1-8b-instant"
+DEFAULT_MODEL = "openai/gpt-oss-20b"
 
 
 def _build_assistant_tool_message(
@@ -33,6 +34,15 @@ def _build_assistant_tool_message(
 
     return message
 
+
+def classify_pdf_with_groq(file_path: str | Path,*,model: str = DEFAULT_MODEL,client: Any | None = None) -> str:
+    document_text = extract_pdf_text(file_path)
+
+    return classify_with_groq(
+        document_text=document_text,
+        model=model,
+        client=client,
+    )
 
 def build_groq_client() -> Groq:
     return Groq(api_key=get_groq_api_key())
