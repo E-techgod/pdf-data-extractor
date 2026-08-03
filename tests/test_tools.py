@@ -145,6 +145,7 @@ def test_extracts_invoice_fields() -> None:
     assert result.data.vendor == "Example Services LLC"
     assert result.data.total == 541.25
     assert result.data.currency == "USD"
+    assert "document_type" not in result.data.model_dump()
 
 
 def test_invoice_allows_missing_fields() -> None:
@@ -222,6 +223,7 @@ def test_extracts_resume_fields() -> None:
             responsibilities=["Built AI workflows."],
         )
     ]
+    assert "document_type" not in result.data.model_dump()
 
 
 def test_resume_allows_missing_fields() -> None:
@@ -296,6 +298,7 @@ def test_extracts_receipt_fields() -> None:
             amount=3.15,
         ),
     ]
+    assert "document_type" not in result.data.model_dump()
 
 
 def test_receipt_allows_missing_fields() -> None:
@@ -363,6 +366,7 @@ def test_extracts_report_fields() -> None:
     assert result.data.conclusion == (
         "The retention strategy is producing measurable gains."
     )
+    assert "document_type" not in result.data.model_dump()
 
 
 def test_report_allows_missing_fields() -> None:
@@ -413,6 +417,7 @@ def test_extracts_generic_fields() -> None:
     assert result.data.document_date == "August 2, 2026"
     assert result.data.author == "Elias Arellano Campos"
     assert len(result.data.key_points) == 2
+    assert "document_type" not in result.data.model_dump()
 
 
 def test_generic_allows_missing_fields() -> None:
@@ -443,14 +448,13 @@ def test_generic_does_not_share_mutable_lists() -> None:
     assert second_result.data.key_points == []
 
 
-def test_top_level_result_rejects_mismatched_data_type() -> None:
-    with pytest.raises(
-        ValidationError,
-        match="document_type must match data.document_type",
-    ):
-        DocumentExtractionResult(
-            document_type="invoice",
-            data=GenericDocumentData(
-                title="Notes",
-            ),
-        )
+def test_unsupported_result_serializes_empty_data_object() -> None:
+    result = DocumentExtractionResult(
+        document_type="report",
+        data={},
+        warnings=[
+            "No specialized extractor is registered for document_type 'report'."
+        ],
+    )
+
+    assert result.model_dump()["data"] == {}

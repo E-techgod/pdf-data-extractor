@@ -10,11 +10,7 @@ from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 from src.pdf_data_extractor.schemas import (
     DocumentClassification,
     DocumentExtractionResult,
-    GenericDocumentData,
-    InvoiceData,
-    ReceiptData,
-    ReportData,
-    ResumeData,
+    EmptyExtractionData,
 )
 from src.pdf_data_extractor.tool_registry import (
     SPECIALIZED_TOOL_NAMES,
@@ -28,22 +24,12 @@ from src.pdf_data_extractor.tool_schemas import (
 DEFAULT_MODEL = "openai/gpt-oss-20b"
 UNREGISTERED_EXTRACTOR_WARNING = (
     "No specialized extractor is registered for document_type "
-    "'{document_type}'. Returning an empty typed result."
+    "'{document_type}'."
 )
 RESUME_EXTRACTION_HINT = (
     "For resume extraction, return education and experience as arrays "
     "of plain strings only. Do not emit nested objects for those fields."
 )
-
-
-EMPTY_DATA_BY_DOCUMENT_TYPE = {
-    "invoice": InvoiceData,
-    "resume": ResumeData,
-    "receipt": ReceiptData,
-    "report": ReportData,
-    "generic": GenericDocumentData,
-}
-
 
 def _parse_tool_arguments(
     raw_arguments: Any,
@@ -180,13 +166,9 @@ def _execute_tool_call(
 def _empty_result_for_document_type(
     document_type: str,
 ) -> DocumentExtractionResult:
-    data_model = EMPTY_DATA_BY_DOCUMENT_TYPE[
-        document_type
-    ]()
-
     return DocumentExtractionResult(
         document_type=document_type,
-        data=data_model,
+        data=EmptyExtractionData(),
         warnings=[
             UNREGISTERED_EXTRACTOR_WARNING.format(
                 document_type=document_type

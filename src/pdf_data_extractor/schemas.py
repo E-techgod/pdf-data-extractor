@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 DocumentType = Literal[
     "invoice",
@@ -19,7 +19,6 @@ class DocumentClassification(BaseModel):
 class InvoiceData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    document_type: Literal["invoice"] = "invoice"
     invoice_number: str | None = None
     vendor: str | None = None
     customer: str | None = None
@@ -54,7 +53,6 @@ class ResumeExperience(BaseModel):
 class ResumeData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    document_type: Literal["resume"] = "resume"
     full_name: str | None = None
     email: str | None = None
     phone: str | None = None
@@ -76,7 +74,6 @@ class ReceiptItem(BaseModel):
 class ReceiptData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    document_type: Literal["receipt"] = "receipt"
     merchant: str | None = None
     receipt_number: str | None = None
     transaction_date: str | None = None
@@ -93,7 +90,6 @@ class ReceiptData(BaseModel):
 class ReportData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    document_type: Literal["report"] = "report"
     title: str | None = None
     author: str | None = None
     organization: str | None = None
@@ -108,7 +104,6 @@ class ReportData(BaseModel):
 class GenericDocumentData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    document_type: Literal["generic"] = "generic"
     title: str | None = None
     document_date: str | None = None
     author: str | None = None
@@ -117,14 +112,18 @@ class GenericDocumentData(BaseModel):
     key_points: list[str] = Field(default_factory=list)
     document_text_excerpt: str | None = None
 
-DocumentData = Annotated[
-    InvoiceData
+class EmptyExtractionData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+DocumentData = (
+    EmptyExtractionData
+    | InvoiceData
     | ResumeData
     | ReceiptData
     | ReportData
-    | GenericDocumentData,
-    Field(discriminator="document_type"),
-]
+    | GenericDocumentData
+)
 
 
 class DocumentExtractionResult(BaseModel):
@@ -133,14 +132,3 @@ class DocumentExtractionResult(BaseModel):
     document_type: DocumentType
     data: DocumentData
     warnings: list[str] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def validate_document_type_match(
-        self,
-    ) -> "DocumentExtractionResult":
-        if self.document_type != self.data.document_type:
-            raise ValueError(
-                "document_type must match data.document_type"
-            )
-
-        return self

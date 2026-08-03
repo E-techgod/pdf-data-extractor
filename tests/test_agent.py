@@ -9,11 +9,8 @@ from src.pdf_data_extractor.agent import (
     classify_with_groq,
 )
 from src.pdf_data_extractor.schemas import (
-    DocumentClassification,
     DocumentExtractionResult,
-    GenericDocumentData,
     InvoiceData,
-    ReceiptData,
     ResumeData,
 )
 from src.pdf_data_extractor.tool_schemas import (
@@ -152,11 +149,11 @@ def test_routes_to_matching_specialized_extractor_only() -> None:
     }
 
 
-def test_returns_empty_typed_result_when_no_extractor_is_registered() -> None:
+def test_unsupported_report_returns_empty_data_with_warning() -> None:
     classify_call = make_tool_call(
         name="classify_document",
         arguments=(
-            '{"document_type": "receipt", "reason": "Contains subtotal and payment method."}'
+            '{"document_type": "report", "reason": "Contains findings and recommendations."}'
         ),
         call_id="call_classify",
     )
@@ -166,23 +163,21 @@ def test_returns_empty_typed_result_when_no_extractor_is_registered() -> None:
     )
 
     result = classify_with_groq(
-        "Store Receipt. Subtotal: $12.50. Payment Method: Visa.",
+        "Executive Summary. Findings. Recommendations. Conclusion.",
         client=client,
     )
 
-    assert result == DocumentExtractionResult(
-        document_type="receipt",
-        data=ReceiptData(),
-        warnings=[
-            UNREGISTERED_EXTRACTOR_WARNING.format(
-                document_type="receipt"
-            )
-        ],
-    )
+    assert result.document_type == "report"
+    assert result.model_dump()["data"] == {}
+    assert result.warnings == [
+        UNREGISTERED_EXTRACTOR_WARNING.format(
+            document_type="report"
+        )
+    ]
     assert client.chat.completions.create.call_count == 1
 
 
-def test_returns_empty_generic_result_when_no_extractor_is_registered() -> None:
+def test_unsupported_types_make_only_one_groq_call() -> None:
     classify_call = make_tool_call(
         name="classify_document",
         arguments=(
@@ -199,15 +194,14 @@ def test_returns_empty_generic_result_when_no_extractor_is_registered() -> None:
         client=client,
     )
 
-    assert result == DocumentExtractionResult(
-        document_type="generic",
-        data=GenericDocumentData(),
-        warnings=[
-            UNREGISTERED_EXTRACTOR_WARNING.format(
-                document_type="generic"
-            )
-        ],
-    )
+    assert result.document_type == "generic"
+    assert result.model_dump()["data"] == {}
+    assert result.warnings == [
+        UNREGISTERED_EXTRACTOR_WARNING.format(
+            document_type="generic"
+        )
+    ]
+    assert client.chat.completions.create.call_count == 1
 
 
 def test_ignores_assistant_prose_and_uses_validated_classification_tool_result() -> None:
@@ -408,9 +402,39 @@ def test_classifies_text_extracted_from_pdf(
             total=125.0,
         ),
     )
+    assert "document_type" not in result.data.model_dump()
     mock_extract_pdf_text.assert_called_once_with(
         "data/invoice.pdf"
     )
+
+
+def test_supported_resume_route_returns_populated_data_without_nested_document_type() -> None:
+    classify_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            '{"document_type": "resume", "reason": "Contains education and skills."}'
+        ),
+    )
+    extract_call = make_tool_call(
+        name="extract_resume_fields",
+        arguments='{"full_name": "Elias Arellano Campos", "skills": ["Python", "SQL"]}',
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+    )
+
+    result = classify_with_groq(
+        "Professional Experience. Skills. Education.",
+        client=client,
+    )
+
+    assert result.document_type == "resume"
+    assert isinstance(result.data, ResumeData)
+    assert result.data.full_name == "Elias Arellano Campos"
+    assert result.data.skills == ["Python", "SQL"]
+    assert "document_type" not in result.data.model_dump()
 
 
 def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
