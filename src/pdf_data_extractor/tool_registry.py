@@ -12,6 +12,7 @@ from src.pdf_data_extractor.tools import (
 
 from src.pdf_data_extractor.tool_schemas import (
     EXTRACT_INVOICE_FIELDS_TOOL,
+    EXTRACT_RECEIPT_FIELDS_TOOL,
     EXTRACT_RESUME_FIELDS_TOOL,
 )
 
@@ -30,9 +31,11 @@ TOOL_REGISTRY: dict[str, ToolFunction] = {
 SPECIALIZED_TOOL_NAMES: dict[str, str] = {
     "invoice": "extract_invoice_fields",
     "resume": "extract_resume_fields",
+    "receipt": "extract_receipt_fields",
 }
 
 SPECIALIZED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "invoice": EXTRACT_INVOICE_FIELDS_TOOL,
     "resume": EXTRACT_RESUME_FIELDS_TOOL,
+    "receipt": EXTRACT_RECEIPT_FIELDS_TOOL,
 }

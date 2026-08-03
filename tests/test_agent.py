@@ -5,6 +5,7 @@ import pytest
 
 from src.pdf_data_extractor.agent import (
     INVOICE_EXTRACTION_HINT,
+    RECEIPT_EXTRACTION_HINT,
     RESUME_EXTRACTION_HINT,
     UNREGISTERED_EXTRACTOR_WARNING,
     classify_pdf_with_groq,
@@ -13,6 +14,7 @@ from src.pdf_data_extractor.agent import (
 from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
     InvoiceData,
+    ReceiptData,
     ResumeData,
 )
 from src.pdf_data_extractor.tool_schemas import (
@@ -205,6 +207,59 @@ def test_unsupported_types_make_only_one_groq_call() -> None:
         )
     ]
     assert client.chat.completions.create.call_count == 1
+
+
+def test_supported_receipt_route_returns_validated_data() -> None:
+    classify_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            '{"document_type": "receipt", "reason": "Contains receipt number, merchant, totals, and payment method."}'
+        ),
+    )
+    extract_call = make_tool_call(
+        name="extract_receipt_fields",
+        arguments=(
+            '{"merchant": "RIVERSTONE MARKET", '
+            '"receipt_number": "RCT-784219", '
+            '"transaction_date": "August 3, 2026", '
+            '"transaction_time": "12:42 PM", '
+            '"items": [{"name": "Whole Milk", "quantity": 2, "amount": 8.58}], '
+            '"subtotal": 38.81, '
+            '"tax": 3.2, '
+            '"total": 42.01, '
+            '"payment_method": "Visa Card **** 4412", '
+            '"currency": "USD"}'
+        ),
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+    )
+
+    result = classify_with_groq(
+        "Receipt Number: RCT-784219. Merchant: RIVERSTONE MARKET. Total: $42.01.",
+        client=client,
+    )
+
+    assert result.document_type == "receipt"
+    assert isinstance(result.data, ReceiptData)
+    assert result.data.merchant == "RIVERSTONE MARKET"
+    assert result.data.receipt_number == "RCT-784219"
+    assert result.data.total == 42.01
+    assert "document_type" not in result.data.model_dump()
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    assert len(second_call.kwargs["tools"]) == 1
+    assert (
+        second_call.kwargs["tools"][0]["function"]["name"]
+        == "extract_receipt_fields"
+    )
+    assert second_call.kwargs["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "extract_receipt_fields"},
+    }
+    assert RECEIPT_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
 def test_ignores_assistant_prose_and_uses_validated_classification_tool_result() -> None:

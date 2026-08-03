@@ -40,6 +40,13 @@ INVOICE_EXTRACTION_HINT = (
     "billed party in customer. Do not include addresses, service provider "
     "labels, departments, or unrelated organization names in vendor or customer."
 )
+RECEIPT_EXTRACTION_HINT = (
+    "For receipt extraction, keep merchant, receipt number, date, time, "
+    "payment method, totals, and line items separated by meaning. Do not "
+    "merge multiple semantic fields into merchant or payment_method. For "
+    "line items, use item name only in name, quantity only in quantity or "
+    "qty, and amount only in amount."
+)
 
 def _parse_tool_arguments(
     raw_arguments: Any,
@@ -277,6 +284,8 @@ def classify_with_groq(
                     if document_type == "resume"
                     else INVOICE_EXTRACTION_HINT
                     if document_type == "invoice"
+                    else RECEIPT_EXTRACTION_HINT
+                    if document_type == "receipt"
                     else ""
                 )
             ),
