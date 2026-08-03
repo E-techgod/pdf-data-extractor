@@ -12,10 +12,6 @@ from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 
 DEFAULT_MODEL = "openai/gpt-oss-20b"
 MAX_TOOL_ROUNDS = 5
-CLASSIFY_DOCUMENT_TOOL_CHOICE = {
-    "type": "function",
-    "function": {"name": "classify_document"},
-}
 
 
 def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
@@ -109,7 +105,9 @@ def classify_with_groq(
             "content": (
                 "You are a document extraction assistant.\n\n"
                 "Follow this process exactly:\n"
-                "1. First call classify_document using the complete document text.\n"
+                "1. First call classify_document with an empty JSON object: {}.\n"
+                "The document text is already available in the conversation.\n"
+                "Do not pass document_text or any other argument to classify_document.\n"
                 "2. Read the classification tool result.\n"
                 "3. If the result is invoice, call extract_invoice_fields.\n"
                 "4. If the result is resume, call extract_resume_fields.\n"
@@ -133,9 +131,7 @@ def classify_with_groq(
         },
     ]
 
-    tool_choice: str | dict[str, Any] = (
-        CLASSIFY_DOCUMENT_TOOL_CHOICE
-    )
+    tool_choice = "auto"
 
     for round_index in range(MAX_TOOL_ROUNDS + 1):
         response = groq_client.chat.completions.create(
@@ -210,9 +206,6 @@ def classify_with_groq(
                     "content": json.dumps(tool_result),
                 }
             )
-
-        tool_choice = "auto"
-
     raise RuntimeError(
         "Groq exceeded the maximum number of tool rounds."
     )

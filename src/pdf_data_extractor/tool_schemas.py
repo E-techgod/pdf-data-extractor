@@ -7,7 +7,9 @@ CLASSIFY_DOCUMENT_TOOL: dict[str, Any] = {
         "description": (
             "Classify a document as an invoice, resume, receipt, "
             "report, or generic document using the document "
-            "already provided in the conversation context."
+            "already provided in the conversation context. "
+            "Call this tool with {} only. Do not pass document text "
+            "or any other arguments."
         ),
         "parameters": {
             "type": "object",

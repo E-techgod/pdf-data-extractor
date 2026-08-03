@@ -8,7 +8,7 @@ The classification logic itself is deliberately deterministic: `classify_documen
 
 The interesting part is `classify_with_groq()`, which wraps the classifier and extraction tools inside a small orchestration loop:
 
-1. Send the document to Groq (`openai/gpt-oss-20b`) with `tool_choice` forcing `classify_document` on the first turn.
+1. Send the document to Groq (`openai/gpt-oss-20b`) with `tool_choice="auto"` and instructions that require `classify_document` before extraction.
 2. Parse each tool call, run the real Python function, and feed the result back into the conversation as a `tool` message.
 3. Let the model choose the matching extraction tool for the classified type.
 4. Keep calling the model with `tool_choice="auto"` until it stops asking for tools and returns the final structured result.
@@ -49,7 +49,7 @@ flowchart TD
         A --> S[TOOLS schema<br/>tool_schemas.py]
         A --> R[TOOL_REGISTRY<br/>tool_registry.py]
 
-        G1 --> TC[Required tool call:<br/>classify_document]
+        G1 --> TC[Expected first tool call:<br/>classify_document]
         TC --> R
         R --> T[classify_document<br/>tools.py]
 

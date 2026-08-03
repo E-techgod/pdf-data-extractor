@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.pdf_data_extractor.agent import (
-    CLASSIFY_DOCUMENT_TOOL_CHOICE,
     MAX_TOOL_ROUNDS,
     classify_pdf_with_groq,
     classify_with_groq,
@@ -108,7 +107,7 @@ def test_sends_tool_result_back_to_model() -> None:
     )
 
 
-def test_forces_expected_tool_on_first_call() -> None:
+def test_uses_auto_tool_choice_on_first_call() -> None:
     tool_call = make_tool_call(arguments="{}")
 
     client = make_fake_client(
@@ -125,10 +124,7 @@ def test_forces_expected_tool_on_first_call() -> None:
 
     first_call = client.chat.completions.create.call_args_list[0]
 
-    assert (
-        first_call.kwargs["tool_choice"]
-        == CLASSIFY_DOCUMENT_TOOL_CHOICE
-    )
+    assert first_call.kwargs["tool_choice"] == "auto"
 
 
 def test_uses_auto_tool_choice_after_first_call() -> None:
@@ -516,6 +512,47 @@ def test_supports_generic_extraction_tool_round() -> None:
     assert len(tool_messages) == 2
     assert tool_messages[1]["name"] == "extract_generic_fields"
     assert '"document_type": "generic"' in tool_messages[1]["content"]
+
+
+def test_supports_extraction_tool_on_first_round() -> None:
+    extract_call = make_tool_call(
+        name="extract_generic_fields",
+        arguments=(
+            '{"title": "AI Engineer Roadmap", '
+            '"summary": "A six-month roadmap.", '
+            '"key_points": ["Build weekly."]}'
+        ),
+        call_id="call_extract_generic",
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[extract_call]),
+        make_response(
+            content=(
+                "The document is generic. "
+                "AI Engineer Roadmap is a six-month roadmap."
+            )
+        ),
+    )
+
+    result = classify_with_groq(
+        "AI Engineer Roadmap: Zero to Hired in 6 Months.",
+        client=client,
+    )
+
+    assert "AI Engineer Roadmap" in result
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    tool_messages = [
+        message
+        for message in second_call.kwargs["messages"]
+        if isinstance(message, dict)
+        and message.get("role") == "tool"
+    ]
+
+    assert len(tool_messages) == 1
+    assert tool_messages[0]["name"] == "extract_generic_fields"
+    assert '"document_type": "generic"' in tool_messages[0]["content"]
 
 
 def test_raises_when_tool_round_limit_is_exceeded() -> None:
