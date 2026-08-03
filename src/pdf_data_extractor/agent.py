@@ -1,7 +1,9 @@
+import ast
 import json
-from groq import Groq
-from typing import Any
 from pathlib import Path
+from typing import Any
+
+from groq import Groq
 
 from src.pdf_data_extractor.config import get_groq_api_key
 from src.pdf_data_extractor.tool_registry import TOOL_REGISTRY
@@ -9,6 +11,10 @@ from src.pdf_data_extractor.tool_schemas import TOOLS
 from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 
 DEFAULT_MODEL = "openai/gpt-oss-20b"
+CLASSIFY_DOCUMENT_TOOL_CHOICE = {
+    "type": "function",
+    "function": {"name": "classify_document"},
+}
 
 
 def _build_assistant_tool_message(
@@ -33,6 +39,39 @@ def _build_assistant_tool_message(
         ]
 
     return message
+
+
+def _parse_tool_arguments(
+    raw_arguments: Any,
+    *,
+    tool_name: str,
+) -> dict[str, Any]:
+    if isinstance(raw_arguments, dict):
+        return raw_arguments
+
+    if not isinstance(raw_arguments, str):
+        raise ValueError(
+            f"Invalid tool arguments for {tool_name}"
+        )
+
+    try:
+        parsed_arguments = json.loads(raw_arguments)
+    except json.JSONDecodeError:
+        try:
+            parsed_arguments = ast.literal_eval(
+                raw_arguments
+            )
+        except (SyntaxError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid tool arguments for {tool_name}"
+            ) from exc
+
+    if not isinstance(parsed_arguments, dict):
+        raise ValueError(
+            f"Invalid tool arguments for {tool_name}"
+        )
+
+    return parsed_arguments
 
 
 def classify_pdf_with_groq(file_path: str | Path,*,model: str = DEFAULT_MODEL,client: Any | None = None) -> str:
@@ -65,7 +104,9 @@ def classify_with_groq(
             "content": (
                 "You are a document analysis assistant. "
                 "Use the available classification tool to classify "
-                "the provided document. After receiving the tool result, "
+                "the provided document. The tool reads the document "
+                "from application state, so call it with empty JSON "
+                "arguments: {}. After receiving the tool result, "
                 "explain the classification briefly."
             ),
         },
@@ -82,7 +123,7 @@ def classify_with_groq(
         model=model,
         messages=messages,
         tools=TOOLS,
-        tool_choice="required",
+        tool_choice=CLASSIFY_DOCUMENT_TOOL_CHOICE,
         temperature=0,
     )
 
@@ -103,16 +144,15 @@ def classify_with_groq(
                 f"Unknown tool requested: {tool_name}"
             )
 
-        try:
-            arguments = json.loads(
-                tool_call.function.arguments
-            )
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Invalid tool arguments for {tool_name}"
-            ) from exc
+        arguments = _parse_tool_arguments(
+            tool_call.function.arguments,
+            tool_name=tool_name,
+        )
 
         tool_function = TOOL_REGISTRY[tool_name]
+
+        if tool_name == "classify_document":
+            arguments = {"document_text": document_text}
 
         try:
             tool_result = tool_function(**arguments)
@@ -134,6 +174,7 @@ def classify_with_groq(
         model=model,
         messages=messages,
         tools=TOOLS,
+        tool_choice="none",
         temperature=0,
     )
 

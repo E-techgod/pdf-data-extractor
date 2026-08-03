@@ -3,7 +3,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.pdf_data_extractor.agent import classify_with_groq
+from src.pdf_data_extractor.agent import (
+    CLASSIFY_DOCUMENT_TOOL_CHOICE,
+    classify_with_groq,
+)
 
 
 def make_tool_call(
@@ -69,10 +72,7 @@ def make_fake_client(
 
 def test_executes_tool_and_returns_final_response() -> None:
     tool_call = make_tool_call(
-        arguments=(
-            '{"document_text": '
-            '"Invoice Number: 123. Amount Due: $50."}'
-        )
+        arguments="{}"
     )
 
     client = make_fake_client(
@@ -92,10 +92,7 @@ def test_executes_tool_and_returns_final_response() -> None:
 
 def test_sends_tool_result_back_to_model() -> None:
     tool_call = make_tool_call(
-        arguments=(
-            '{"document_text": '
-            '"Professional Experience. Education. Skills."}'
-        )
+        arguments="{}"
     )
 
     client = make_fake_client(
@@ -130,6 +127,116 @@ def test_sends_tool_result_back_to_model() -> None:
     assert tool_message["tool_call_id"] == "call_123"
     assert tool_message["name"] == "classify_document"
     assert '"document_type": "resume"' in tool_message["content"]
+
+
+def test_forces_expected_tool_on_first_call() -> None:
+    tool_call = make_tool_call(
+        arguments="{}"
+    )
+
+    client = make_fake_client(
+        first_response=make_first_response(tool_call),
+        final_response=make_final_response(
+            "The document is an invoice."
+        ),
+    )
+
+    classify_with_groq(
+        "Invoice Number: 123. Amount Due: $50.",
+        client=client,
+    )
+
+    first_call = client.chat.completions.create.call_args_list[0]
+
+    assert (
+        first_call.kwargs["tool_choice"]
+        == CLASSIFY_DOCUMENT_TOOL_CHOICE
+    )
+
+
+def test_disables_tool_use_on_final_call() -> None:
+    tool_call = make_tool_call(
+        arguments="{}"
+    )
+
+    client = make_fake_client(
+        first_response=make_first_response(tool_call),
+        final_response=make_final_response(
+            "The document is an invoice."
+        ),
+    )
+
+    classify_with_groq(
+        "Invoice Number: 123. Amount Due: $50.",
+        client=client,
+    )
+
+    second_call = client.chat.completions.create.call_args_list[1]
+
+    assert second_call.kwargs["tool_choice"] == "none"
+
+
+def test_accepts_python_dict_style_tool_arguments() -> None:
+    tool_call = make_tool_call(
+        arguments="{}"
+    )
+
+    client = make_fake_client(
+        first_response=make_first_response(tool_call),
+        final_response=make_final_response(
+            "The document is an invoice."
+        ),
+    )
+
+    result = classify_with_groq(
+        "Invoice Number: 123. Amount Due: $50.",
+        client=client,
+    )
+
+    assert result == "The document is an invoice."
+
+
+def test_accepts_preparsed_tool_arguments() -> None:
+    tool_call = make_tool_call(
+        arguments={},
+    )
+
+    client = make_fake_client(
+        first_response=make_first_response(tool_call),
+        final_response=make_final_response(
+            "The document is a resume."
+        ),
+    )
+
+    result = classify_with_groq(
+        "Professional Experience. Education. Skills.",
+        client=client,
+    )
+
+    assert result == "The document is a resume."
+
+
+def test_ignores_model_supplied_document_text() -> None:
+    tool_call = make_tool_call(
+        arguments=(
+            '{"document_text": "Receipt. Subtotal. Sales tax."}'
+        )
+    )
+
+    client = make_fake_client(
+        first_response=make_first_response(tool_call),
+        final_response=make_final_response(
+            "The document is an invoice."
+        ),
+    )
+
+    result = classify_with_groq(
+        "Invoice Number: 123. Amount Due: $50.",
+        client=client,
+    )
+
+    assert result == "The document is an invoice."
+
 
 def test_rejects_empty_document() -> None:
     client = Mock()
@@ -204,9 +311,9 @@ def test_rejects_invalid_json_arguments() -> None:
         )
 
 
-def test_rejects_missing_required_tool_argument() -> None:
+def test_rejects_non_object_tool_arguments() -> None:
     tool_call = make_tool_call(
-        arguments="{}",
+        arguments='"not an object"',
     )
 
     client = Mock()
@@ -216,7 +323,7 @@ def test_rejects_missing_required_tool_argument() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Invalid arguments for tool",
+        match="Invalid tool arguments",
     ):
         classify_with_groq(
             "Test document",
@@ -226,10 +333,7 @@ def test_rejects_missing_required_tool_argument() -> None:
 
 def test_rejects_empty_final_response() -> None:
     tool_call = make_tool_call(
-        arguments=(
-            '{"document_text": '
-            '"Invoice Number: 123. Amount Due: $50."}'
-        )
+        arguments="{}"
     )
 
     client = make_fake_client(
