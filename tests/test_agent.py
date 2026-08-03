@@ -1,7 +1,7 @@
+import pytest
+
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-
-import pytest
 
 from src.pdf_data_extractor.agent import (
     GENERIC_EXTRACTION_HINT,
@@ -13,6 +13,7 @@ from src.pdf_data_extractor.agent import (
     _classify_document_by_keywords,
     classify_pdf_with_groq,
     classify_with_groq,
+    analyze_document_with_groq
 )
 from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
@@ -57,6 +58,17 @@ def make_response(
                 )
             )
         ]
+    )
+
+
+def make_first_response(
+    tool_call: SimpleNamespace,
+    *,
+    content: str | None = None,
+) -> SimpleNamespace:
+    return make_response(
+        tool_calls=[tool_call],
+        content=content,
     )
 
 
@@ -669,3 +681,196 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
             }
         ],
     }
+
+def test_rejects_non_object_tool_arguments() -> None:
+    tool_call = make_tool_call(
+        name="classify_document",
+        arguments='["invoice", "reason"]',
+    )
+
+    client = Mock()
+    client.chat.completions.create.return_value = (
+        make_first_response(tool_call)
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid tool arguments",
+    ):
+        analyze_document_with_groq(
+            "Invoice Number: INV-001",
+            client=client,
+        )
+
+
+def test_rejects_invalid_classification_type() -> None:
+    tool_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            "{"
+            '"document_type": "contract", '
+            '"reason": "It looks like a contract."'
+            "}"
+        ),
+    )
+
+    client = Mock()
+    client.chat.completions.create.return_value = (
+        make_first_response(tool_call)
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="validation error for DocumentClassification",
+    ):
+        analyze_document_with_groq(
+            "Agreement between two parties",
+            client=client,
+        )
+
+
+def test_rejects_negative_invoice_total() -> None:
+    classification_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            "{"
+            '"document_type": "invoice", '
+            '"reason": "Contains invoice fields."'
+            "}"
+        ),
+    )
+
+    extraction_call = make_tool_call(
+        name="extract_invoice_fields",
+        arguments=(
+            "{"
+            '"invoice_number": "INV-001", '
+            '"total": -100.0'
+            "}"
+        ),
+    )
+
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        make_first_response(classification_call),
+        make_first_response(extraction_call),
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="validation error for InvoiceData",
+    ):
+        analyze_document_with_groq(
+            "Invoice Number: INV-001",
+            client=client,
+        )
+
+def test_report_without_extractor_raises_when_tool_call_is_missing() -> None:
+    classification_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            "{"
+            '"document_type": "report", '
+            '"reason": "Contains findings and recommendations."'
+            "}"
+        ),
+    )
+
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        make_first_response(classification_call),
+        make_response(),
+    ]
+
+    with pytest.raises(
+        RuntimeError,
+        match="Groq did not call required tool: extract_report_fields",
+    ):
+        analyze_document_with_groq(
+            "Executive Summary. Findings. Recommendations.",
+            client=client,
+        )
+
+    assert client.chat.completions.create.call_count == 2
+
+
+def test_nested_data_does_not_include_document_type() -> None:
+    classification_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            "{"
+            '"document_type": "invoice", '
+            '"reason": "Contains billing information."'
+            "}"
+        ),
+    )
+
+    extraction_call = make_tool_call(
+        name="extract_invoice_fields",
+        arguments=(
+            "{"
+            '"invoice_number": "INV-001", '
+            '"vendor": "Example LLC", '
+            '"customer": "Customer LLC", '
+            '"total": 100.0'
+            "}"
+        ),
+    )
+
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        make_first_response(classification_call),
+        make_first_response(extraction_call),
+    ]
+
+    result = analyze_document_with_groq(
+        "Invoice Number: INV-001",
+        client=client,
+    )
+
+    assert "document_type" not in result.data
+
+
+def test_invoice_route_uses_only_invoice_extractor() -> None:
+    classification_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            "{"
+            '"document_type": "invoice", '
+            '"reason": "Contains an invoice number."'
+            "}"
+        ),
+    )
+
+    extraction_call = make_tool_call(
+        name="extract_invoice_fields",
+        arguments=(
+            "{"
+            '"invoice_number": "INV-001", '
+            '"total": 100.0'
+            "}"
+        ),
+    )
+
+    client = Mock()
+    client.chat.completions.create.side_effect = [
+        make_first_response(classification_call),
+        make_first_response(extraction_call),
+    ]
+
+    analyze_document_with_groq(
+        "Invoice Number: INV-001",
+        client=client,
+    )
+
+    second_request = (
+        client.chat.completions.create.call_args_list[1]
+    )
+
+    exposed_tools = second_request.kwargs["tools"]
+
+    assert len(exposed_tools) == 1
+    assert (
+        exposed_tools[0]["function"]["name"]
+        == "extract_invoice_fields"
+    )

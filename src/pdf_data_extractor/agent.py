@@ -33,7 +33,13 @@ RESUME_EXTRACTION_HINT = (
     "multiple semantic fields into one value. Split institution, degree, "
     "field, minor, and graduation date into their matching properties. "
     "Split company, title, dates, location, and responsibilities into "
-    "their matching properties."
+    "their matching properties. Capture the top contact block into "
+    "full_name, email, phone, and location whenever those values appear. "
+    "Do not leave those fields null when the resume header explicitly shows "
+    "them. For education, keep degree type separate from field and minor: "
+    "for example, use degree='Bachelor of Science', field='Computer Science', "
+    "and minor='Mathematics', not merged phrases such as "
+    "'Bachelor of Science in Computer Science' or 'Minor in Mathematics'."
 )
 INVOICE_EXTRACTION_HINT = (
     "For invoice extraction, do not concatenate multiple semantic fields "

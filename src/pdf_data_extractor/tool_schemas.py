@@ -130,29 +130,38 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
             "missing details. Do not concatenate multiple semantic fields "
             "into one value. Split school, degree, field, minor, graduation "
             "date, company, title, dates, and location into their matching "
-            "properties."
+            "properties. Capture the visible resume header contact block into "
+            "full_name, email, phone, and location whenever present."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "full_name": {
                     "type": ["string", "null"],
-                    "description": "Candidate's complete name.",
+                    "description": (
+                        "Candidate's complete name from the resume header or "
+                        "contact block only."
+                    ),
                 },
                 "email": {
                     "type": ["string", "null"],
-                    "description": "Candidate's email address.",
+                    "description": (
+                        "Candidate's email address from the visible contact "
+                        "block only."
+                    ),
                 },
                 "phone": {
                     "type": ["string", "null"],
                     "description": (
-                        "Candidate's phone number exactly as displayed."
+                        "Candidate's phone number from the visible contact "
+                        "block, exactly as displayed."
                     ),
                 },
                 "location": {
                     "type": ["string", "null"],
                     "description": (
-                        "Candidate's city, state, country, or displayed location."
+                        "Candidate's city, state, country, or displayed "
+                        "location from the contact block only."
                     ),
                 },
                 "professional_summary": {
@@ -192,18 +201,25 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                                         "type": ["string", "null"],
                                         "description": (
                                             "Degree type only, such as "
-                                            "'Bachelor of Science'."
+                                            "'Bachelor of Science'. Do not "
+                                            "include the major, field, minor, "
+                                            "or phrases like 'in Computer Science'."
                                         ),
                                     },
                                     "field": {
                                         "type": ["string", "null"],
                                         "description": (
-                                            "Major or field of study only."
+                                            "Major or field of study only, "
+                                            "such as 'Computer Science'. Do not "
+                                            "repeat the degree type or minor."
                                         ),
                                     },
                                     "minor": {
                                         "type": ["string", "null"],
-                                        "description": "Minor only.",
+                                        "description": (
+                                            "Minor only, such as 'Mathematics'. "
+                                            "Do not include the word 'Minor'."
+                                        ),
                                     },
                                     "graduation_date": {
                                         "type": ["string", "null"],
@@ -219,7 +235,8 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                     },
                     "description": (
                         "Education entries preserving school, degree, "
-                        "field, and dates when present."
+                        "field, minor, and dates when present. Keep each "
+                        "semantic part in its own property."
                     ),
                 },
                 "experience": {

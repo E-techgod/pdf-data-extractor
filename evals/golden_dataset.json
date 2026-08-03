@@ -1,0 +1,121 @@
+[
+  {
+    "id": "invoice_001",
+    "document_type": "invoice",
+    "text": "INVOICE\nNorthstar Automation LLC\nInvoice Number: INV-2026-0817\nInvoice Date: August 3, 2026\nBill To: American Smart Business LLC\nSubtotal: $1,870.00\nTax: $154.28\nTotal Due: $2,024.28\nPayment Due: August 17, 2026",
+    "expected_data": {
+      "invoice_number": "INV-2026-0817",
+      "vendor": "Northstar Automation LLC",
+      "customer": "American Smart Business LLC",
+      "invoice_date": "August 3, 2026",
+      "due_date": "August 17, 2026",
+      "subtotal": 1870.0,
+      "tax": 154.28,
+      "total": 2024.28,
+      "currency": "USD"
+    },
+    "required_fields": [
+      "invoice_number",
+      "vendor",
+      "customer",
+      "invoice_date",
+      "due_date",
+      "subtotal",
+      "tax",
+      "total",
+      "currency"
+    ]
+  },
+  {
+    "id": "resume_001",
+    "document_type": "resume",
+    "text": "ELIAS ARELLANO CAMPOS\nHouston, Texas\nelias.arellano@example.com\n(832) 555-0198\n\nEDUCATION\nUniversity of Houston\nBachelor of Science in Computer Science\nMinor in Mathematics\nGraduated May 2026\n\nEXPERIENCE\nAI Systems Implementation Associate\nAmerican Smart Business LLC\nAugust 2026 - Present\nRemote, Texas\n\nSKILLS\nPython, SQL, PyTorch, FastAPI, Pydantic, pytest",
+    "expected_data": {
+      "full_name": "ELIAS ARELLANO CAMPOS",
+      "email": "elias.arellano@example.com",
+      "phone": "(832) 555-0198",
+      "location": "Houston, Texas",
+      "education[0].school": "University of Houston",
+      "education[0].degree": "Bachelor of Science",
+      "education[0].field": "Computer Science",
+      "education[0].minor": "Mathematics",
+      "education[0].graduation_date": "May 2026",
+      "experience[0].company": "American Smart Business LLC",
+      "experience[0].title": "AI Systems Implementation Associate",
+      "experience[0].dates": "August 2026 - Present",
+      "experience[0].location": "Remote, Texas"
+    },
+    "required_fields": [
+      "full_name",
+      "email",
+      "phone",
+      "location",
+      "skills",
+      "education[0].school",
+      "education[0].degree",
+      "education[0].field",
+      "education[0].minor",
+      "education[0].graduation_date",
+      "experience[0].company",
+      "experience[0].title",
+      "experience[0].dates",
+      "experience[0].location"
+    ]
+  },
+  {
+    "id": "receipt_001",
+    "document_type": "receipt",
+    "text": "RIVERSTONE MARKET\nReceipt Number: RCT-784219\nDate: August 3, 2026\nTime: 12:42 PM\nOrganic Coffee Beans 1 x $14.99\nSubtotal: $38.81\nTax: $3.20\nTotal: $42.01\nPayment Method: Visa\nAmount Paid: $42.01\nChange Due: $0.00",
+    "expected_data": {
+      "merchant": "RIVERSTONE MARKET",
+      "receipt_number": "RCT-784219",
+      "transaction_date": "August 3, 2026",
+      "transaction_time": "12:42 PM",
+      "subtotal": 38.81,
+      "tax": 3.2,
+      "total": 42.01,
+      "payment_method": "Visa",
+      "change_due": 0.0,
+      "currency": "USD"
+    },
+    "required_fields": [
+      "merchant",
+      "receipt_number",
+      "transaction_date",
+      "transaction_time",
+      "subtotal",
+      "tax",
+      "total",
+      "payment_method",
+      "change_due",
+      "currency"
+    ]
+  },
+  {
+    "id": "report_001",
+    "document_type": "report",
+    "text": "DOCUMENT EXTRACTION PILOT REPORT\nApplied AI Engineering Team\nAugust 3, 2026\n\nEXECUTIVE SUMMARY\nThis report evaluates a prototype PDF extraction system.\n\nMETHODOLOGY\nThe test set contained invoices, resumes, receipts, and analytical reports.\n\nFINDINGS\nThe workflow successfully demonstrated structured validation and tool routing.\n\nRECOMMENDATIONS\nExpand the test set and add regression evaluation.\n\nCONCLUSION\nThe prototype is suitable for continued development.",
+    "expected_data": {
+      "title": "DOCUMENT EXTRACTION PILOT REPORT",
+      "author": "Applied AI Engineering Team",
+      "report_date": "August 3, 2026"
+    },
+    "required_fields": [
+      "title",
+      "author",
+      "report_date",
+      "executive_summary",
+      "methodology",
+      "findings",
+      "recommendations",
+      "conclusion"
+    ]
+  },
+  {
+    "id": "generic_001",
+    "document_type": "generic",
+    "text": "This learning roadmap explains weekly topics, projects, and resources for aspiring AI engineers.",
+    "expected_data": {},
+    "required_fields": []
+  }
+]
