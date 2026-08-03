@@ -1,5 +1,10 @@
-from typing import Literal, TypedDict, Any
-from src.pdf_data_extractor.schemas import InvoiceData, ResumeData
+from typing import Any, Literal, TypedDict
+
+from src.pdf_data_extractor.schemas import (
+    InvoiceData,
+    ReceiptData,
+    ResumeData,
+)
 
 
 DocumentType = Literal[
@@ -148,4 +153,43 @@ def extract_resume_fields(
     return {
         "document_type": "resume",
         "data": resume.model_dump(),
+    }
+
+
+def extract_receipt_fields(
+    merchant: str | None = None,
+    receipt_number: str | None = None,
+    transaction_date: str | None = None,
+    transaction_time: str | None = None,
+    items: list[str] | None = None,
+    subtotal: float | None = None,
+    tax: float | None = None,
+    total: float | None = None,
+    payment_method: str | None = None,
+    change_due: float | None = None,
+    currency: str = "USD",
+) -> dict[str, Any]:
+    """
+    Validate and return structured fields extracted from a receipt.
+
+    The LLM extracts the values from the document.
+    This Python function validates and normalizes those values.
+    """
+    receipt = ReceiptData(
+        merchant=merchant,
+        receipt_number=receipt_number,
+        transaction_date=transaction_date,
+        transaction_time=transaction_time,
+        items=items or [],
+        subtotal=subtotal,
+        tax=tax,
+        total=total,
+        payment_method=payment_method,
+        change_due=change_due,
+        currency=currency.upper(),
+    )
+
+    return {
+        "document_type": "receipt",
+        "data": receipt.model_dump(),
     }

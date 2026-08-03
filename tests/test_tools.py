@@ -6,9 +6,10 @@ from src.pdf_data_extractor.agent import (
 )
 
 from src.pdf_data_extractor.tools import (
-    classify_document, 
-    extract_invoice_fields, 
-    extract_resume_fields
+    classify_document,
+    extract_invoice_fields,
+    extract_receipt_fields,
+    extract_resume_fields,
 )
 
 def test_classifies_invoice() -> None:
@@ -264,3 +265,68 @@ def test_resume_does_not_share_mutable_lists() -> None:
     first_result["data"]["skills"].append("Python")
 
     assert second_result["data"]["skills"] == []
+
+
+def test_extracts_receipt_fields() -> None:
+    result = extract_receipt_fields(
+        merchant="HEB",
+        receipt_number="RCPT-1001",
+        transaction_date="August 1, 2026",
+        transaction_time="14:35",
+        items=[
+            "Milk",
+            "Bread",
+        ],
+        subtotal=12.50,
+        tax=1.03,
+        total=13.53,
+        payment_method="Visa",
+        change_due=0.00,
+        currency="usd",
+    )
+
+    assert result["document_type"] == "receipt"
+
+    receipt = result["data"]
+
+    assert receipt["merchant"] == "HEB"
+    assert receipt["receipt_number"] == "RCPT-1001"
+    assert receipt["total"] == 13.53
+    assert receipt["payment_method"] == "Visa"
+    assert receipt["currency"] == "USD"
+
+
+def test_receipt_allows_missing_fields() -> None:
+    result = extract_receipt_fields(
+        merchant="HEB",
+        total=13.53,
+    )
+
+    receipt = result["data"]
+
+    assert receipt["merchant"] == "HEB"
+    assert receipt["receipt_number"] is None
+    assert receipt["items"] == []
+    assert receipt["total"] == 13.53
+
+
+def test_receipt_rejects_negative_total() -> None:
+    with pytest.raises(ValidationError):
+        extract_receipt_fields(
+            merchant="HEB",
+            total=-13.53,
+        )
+
+
+def test_receipt_does_not_share_mutable_lists() -> None:
+    first_result = extract_receipt_fields(
+        merchant="Store One",
+    )
+
+    second_result = extract_receipt_fields(
+        merchant="Store Two",
+    )
+
+    first_result["data"]["items"].append("Milk")
+
+    assert second_result["data"]["items"] == []

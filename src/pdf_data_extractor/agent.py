@@ -103,12 +103,13 @@ def classify_with_groq(
                 "2. Read the classification tool result.\n"
                 "3. If the result is invoice, call extract_invoice_fields.\n"
                 "4. If the result is resume, call extract_resume_fields.\n"
-                "5. Use only information explicitly found in the document.\n"
-                "6. Never infer or invent missing values.\n"
-                "7. Omit unavailable optional arguments or use null.\n"
-                "8. After all required tools are complete, return the final "
+                "5. If the result is receipt, call extract_receipt_fields.\n"
+                "6. Use only information explicitly found in the document.\n"
+                "7. Never infer or invent missing values.\n"
+                "8. Omit unavailable optional arguments or use null.\n"
+                "9. After all required tools are complete, return the final "
                 "structured extraction result.\n"
-                "9. Do not offer additional help or add conversational closing text."
+                "10. Do not offer additional help or add conversational closing text."
             ),
         },
         {

@@ -371,6 +371,58 @@ def test_supports_multiple_tool_rounds() -> None:
     )
 
 
+def test_supports_receipt_extraction_tool_round() -> None:
+    classify_call = make_tool_call(
+        arguments="{}",
+        call_id="call_classify",
+    )
+    extract_call = make_tool_call(
+        name="extract_receipt_fields",
+        arguments=(
+            '{"merchant": "HEB", '
+            '"receipt_number": "1001", '
+            '"items": ["Milk"], '
+            '"subtotal": 12.5, '
+            '"tax": 1.03, '
+            '"total": 13.53, '
+            '"payment_method": "visa", '
+            '"currency": "usd"}'
+        ),
+        call_id="call_extract_receipt",
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+        make_response(
+            content=(
+                "The document is a receipt. "
+                "Receipt 1001 from HEB totals $13.53."
+            )
+        ),
+    )
+
+    result = classify_with_groq(
+        "Store Receipt. Subtotal: $12.50. Sales Tax: $1.03. "
+        "Total: $13.53. Payment Method: Visa.",
+        client=client,
+    )
+
+    assert "Receipt 1001" in result
+
+    third_call = client.chat.completions.create.call_args_list[2]
+    tool_messages = [
+        message
+        for message in third_call.kwargs["messages"]
+        if isinstance(message, dict)
+        and message.get("role") == "tool"
+    ]
+
+    assert len(tool_messages) == 2
+    assert tool_messages[1]["name"] == "extract_receipt_fields"
+    assert '"document_type": "receipt"' in tool_messages[1]["content"]
+
+
 def test_raises_when_tool_round_limit_is_exceeded() -> None:
     tool_call = make_tool_call(arguments="{}")
     responses = [

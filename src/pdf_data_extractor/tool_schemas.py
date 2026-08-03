@@ -159,8 +159,89 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
     },
 }
 
+EXTRACT_RECEIPT_FIELDS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "extract_receipt_fields",
+        "description": (
+            "Extract structured receipt information from a document "
+            "that has been identified as a receipt. Use only values "
+            "explicitly present in the document. Never infer or invent "
+            "missing details."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "merchant": {
+                    "type": ["string", "null"],
+                    "description": "Store or merchant name on the receipt.",
+                },
+                "receipt_number": {
+                    "type": ["string", "null"],
+                    "description": "Receipt, transaction, or reference number.",
+                },
+                "transaction_date": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Transaction date exactly as shown in the receipt."
+                    ),
+                },
+                "transaction_time": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Transaction time exactly as shown in the receipt."
+                    ),
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": (
+                        "Line items explicitly listed on the receipt."
+                    ),
+                },
+                "subtotal": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "description": "Subtotal before tax and final charges.",
+                },
+                "tax": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "description": "Tax amount shown on the receipt.",
+                },
+                "total": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "description": "Final total charged.",
+                },
+                "payment_method": {
+                    "type": ["string", "null"],
+                    "description": "Payment method exactly as shown.",
+                },
+                "change_due": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "description": "Change returned to the customer.",
+                },
+                "currency": {
+                    "type": "string",
+                    "description": (
+                        "Three-letter currency code such as USD, MXN, or EUR."
+                    ),
+                    "default": "USD",
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOLS: list[dict[str, Any]] = [
     CLASSIFY_DOCUMENT_TOOL,
     EXTRACT_INVOICE_FIELDS_TOOL,
     EXTRACT_RESUME_FIELDS_TOOL,
+    EXTRACT_RECEIPT_FIELDS_TOOL,
 ]
