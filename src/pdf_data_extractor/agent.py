@@ -40,7 +40,11 @@ def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
     return message
 
 
-def _parse_tool_arguments(raw_arguments: Any,*,tool_name: str) -> dict[str, Any]:
+def _parse_tool_arguments(
+    raw_arguments: Any,
+    *,
+    tool_name: str,
+) -> dict[str, Any]:
     if isinstance(raw_arguments, dict):
         return raw_arguments
 
@@ -69,7 +73,12 @@ def _parse_tool_arguments(raw_arguments: Any,*,tool_name: str) -> dict[str, Any]
     return parsed_arguments
 
 
-def classify_pdf_with_groq(file_path: str | Path,*,model: str = DEFAULT_MODEL,client: Any | None = None) -> str:
+def classify_pdf_with_groq(
+    file_path: str | Path,
+    *,
+    model: str = DEFAULT_MODEL,
+    client: Any | None = None,
+) -> str:
     document_text = extract_pdf_text(file_path)
 
     return classify_with_groq(
@@ -77,6 +86,7 @@ def classify_pdf_with_groq(file_path: str | Path,*,model: str = DEFAULT_MODEL,cl
         model=model,
         client=client,
     )
+
 
 def build_groq_client() -> Groq:
     return Groq(api_key=get_groq_api_key())
@@ -105,12 +115,13 @@ def classify_with_groq(
                 "4. If the result is resume, call extract_resume_fields.\n"
                 "5. If the result is receipt, call extract_receipt_fields.\n"
                 "6. If the result is report, call extract_report_fields.\n"
-                "7. Use only information explicitly found in the document.\n"
-                "8. Never infer or invent missing values.\n"
-                "9. Omit unavailable optional arguments or use null.\n"
-                "10. After all required tools are complete, return the final "
+                "7. If the result is generic, call extract_generic_fields.\n"
+                "8. Use only information explicitly found in the document.\n"
+                "9. Never infer or invent missing values.\n"
+                "10. Omit unavailable optional arguments or use null.\n"
+                "11. After all required tools are complete, return the final "
                 "structured extraction result.\n"
-                "11. Do not offer additional help or add conversational closing text."
+                "12. Do not offer additional help or add conversational closing text."
             ),
         },
         {

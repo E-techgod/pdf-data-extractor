@@ -307,10 +307,68 @@ EXTRACT_REPORT_FIELDS_TOOL: dict[str, Any] = {
     },
 }
 
+EXTRACT_GENERIC_FIELDS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "extract_generic_fields",
+        "description": (
+            "Extract structured information from a document that has been "
+            "identified as a generic document when it does not fit invoice, "
+            "resume, receipt, or report patterns. Use only values explicitly "
+            "present in the document. Never infer or invent missing details."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": ["string", "null"],
+                    "description": "Document title exactly as shown.",
+                },
+                "document_date": {
+                    "type": ["string", "null"],
+                    "description": "Document date exactly as shown.",
+                },
+                "author": {
+                    "type": ["string", "null"],
+                    "description": "Author name exactly as shown.",
+                },
+                "organization": {
+                    "type": ["string", "null"],
+                    "description": "Organization associated with the document.",
+                },
+                "summary": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Short summary based only on the explicit document content."
+                    ),
+                },
+                "key_points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": (
+                        "Key points explicitly present in the document."
+                    ),
+                },
+                "document_text_excerpt": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Short excerpt copied or condensed from the document text."
+                    ),
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOLS: list[dict[str, Any]] = [
     CLASSIFY_DOCUMENT_TOOL,
     EXTRACT_INVOICE_FIELDS_TOOL,
     EXTRACT_RESUME_FIELDS_TOOL,
     EXTRACT_RECEIPT_FIELDS_TOOL,
     EXTRACT_REPORT_FIELDS_TOOL,
+    EXTRACT_GENERIC_FIELDS_TOOL,
 ]

@@ -1,17 +1,16 @@
 import pytest
 from pydantic import ValidationError
 
-from src.pdf_data_extractor.agent import (
-    _build_assistant_tool_message,
-)
-
+from src.pdf_data_extractor.agent import _build_assistant_tool_message
 from src.pdf_data_extractor.tools import (
     classify_document,
+    extract_generic_fields,
     extract_invoice_fields,
     extract_report_fields,
     extract_receipt_fields,
     extract_resume_fields,
 )
+
 
 def test_classifies_invoice() -> None:
     document = """
@@ -172,38 +171,6 @@ def test_invoice_rejects_negative_total() -> None:
             vendor="Example Services LLC",
             total=-50.00,
         )
-
-from src.pdf_data_extractor.agent import analyze_document_with_groq
-
-
-def main() -> None:
-    document = """
-    INVOICE
-
-    High End Locksmiths, LLC
-    Invoice Number: 32107
-    Invoice Date: July 29, 2026
-
-    Bill To:
-    Elias Arellano Campos
-
-    Service:
-    Volkswagen Jetta 2021 replacement key
-
-    Subtotal: $475.00
-    Tax: $40.00
-    Total Due: $515.00
-
-    Payment Due: August 5, 2026
-    """
-
-    result = analyze_document_with_groq(document)
-
-    print(result)
-
-
-if __name__ == "__main__":
-    main()
 
 def test_extracts_resume_fields() -> None:
     result = extract_resume_fields(
@@ -390,3 +357,55 @@ def test_report_does_not_share_mutable_lists() -> None:
     first_result["data"]["findings"].append("Finding one")
 
     assert second_result["data"]["findings"] == []
+
+
+def test_extracts_generic_fields() -> None:
+    result = extract_generic_fields(
+        title="Project Kickoff Notes",
+        document_date="August 2, 2026",
+        author="Elias Arellano Campos",
+        organization="Austin Cohort",
+        summary="Notes covering the initial kickoff discussion.",
+        key_points=[
+            "Team introductions completed.",
+            "Project timeline was reviewed.",
+        ],
+        document_text_excerpt="Kickoff meeting notes for the PDF extractor project.",
+    )
+
+    assert result["document_type"] == "generic"
+
+    generic_document = result["data"]
+
+    assert generic_document["title"] == "Project Kickoff Notes"
+    assert generic_document["document_date"] == "August 2, 2026"
+    assert generic_document["author"] == "Elias Arellano Campos"
+    assert len(generic_document["key_points"]) == 2
+
+
+def test_generic_allows_missing_fields() -> None:
+    result = extract_generic_fields(
+        title="Meeting Notes",
+        key_points=["Reviewed next steps."],
+    )
+
+    generic_document = result["data"]
+
+    assert generic_document["title"] == "Meeting Notes"
+    assert generic_document["author"] is None
+    assert generic_document["key_points"] == ["Reviewed next steps."]
+    assert generic_document["summary"] is None
+
+
+def test_generic_does_not_share_mutable_lists() -> None:
+    first_result = extract_generic_fields(
+        title="Document One",
+    )
+
+    second_result = extract_generic_fields(
+        title="Document Two",
+    )
+
+    first_result["data"]["key_points"].append("Point one")
+
+    assert second_result["data"]["key_points"] == []

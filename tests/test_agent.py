@@ -471,6 +471,53 @@ def test_supports_report_extraction_tool_round() -> None:
     assert '"document_type": "report"' in tool_messages[1]["content"]
 
 
+def test_supports_generic_extraction_tool_round() -> None:
+    classify_call = make_tool_call(
+        arguments="{}",
+        call_id="call_classify",
+    )
+    extract_call = make_tool_call(
+        name="extract_generic_fields",
+        arguments=(
+            '{"title": "Project Kickoff Notes", '
+            '"document_date": "August 2, 2026", '
+            '"key_points": ["Reviewed next steps."], '
+            '"summary": "Notes from the kickoff meeting."}'
+        ),
+        call_id="call_extract_generic",
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+        make_response(
+            content=(
+                "The document is generic. "
+                "Project Kickoff Notes summarizes the kickoff meeting."
+            )
+        ),
+    )
+
+    result = classify_with_groq(
+        "This is a short personal note about the kickoff meeting tomorrow.",
+        client=client,
+    )
+
+    assert "Project Kickoff Notes" in result
+
+    third_call = client.chat.completions.create.call_args_list[2]
+    tool_messages = [
+        message
+        for message in third_call.kwargs["messages"]
+        if isinstance(message, dict)
+        and message.get("role") == "tool"
+    ]
+
+    assert len(tool_messages) == 2
+    assert tool_messages[1]["name"] == "extract_generic_fields"
+    assert '"document_type": "generic"' in tool_messages[1]["content"]
+
+
 def test_raises_when_tool_round_limit_is_exceeded() -> None:
     tool_call = make_tool_call(arguments="{}")
     responses = [

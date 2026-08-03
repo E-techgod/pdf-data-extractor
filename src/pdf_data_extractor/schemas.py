@@ -56,3 +56,15 @@ class ReportData(BaseModel):
     findings: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
     conclusion: str | None = None
+
+
+class GenericDocumentData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    document_date: str | None = None
+    author: str | None = None
+    organization: str | None = None
+    summary: str | None = None
+    key_points: list[str] = Field(default_factory=list)
+    document_text_excerpt: str | None = None

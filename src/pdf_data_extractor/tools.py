@@ -1,6 +1,7 @@
 from typing import Any, Literal, TypedDict
 
 from src.pdf_data_extractor.schemas import (
+    GenericDocumentData,
     InvoiceData,
     ReportData,
     ReceiptData,
@@ -228,4 +229,35 @@ def extract_report_fields(
     return {
         "document_type": "report",
         "data": report.model_dump(),
+    }
+
+
+def extract_generic_fields(
+    title: str | None = None,
+    document_date: str | None = None,
+    author: str | None = None,
+    organization: str | None = None,
+    summary: str | None = None,
+    key_points: list[str] | None = None,
+    document_text_excerpt: str | None = None,
+) -> dict[str, Any]:
+    """
+    Validate and return structured fields extracted from a generic document.
+
+    The LLM extracts the values from the document.
+    This Python function validates and normalizes those values.
+    """
+    generic_document = GenericDocumentData(
+        title=title,
+        document_date=document_date,
+        author=author,
+        organization=organization,
+        summary=summary,
+        key_points=key_points or [],
+        document_text_excerpt=document_text_excerpt,
+    )
+
+    return {
+        "document_type": "generic",
+        "data": generic_document.model_dump(),
     }
