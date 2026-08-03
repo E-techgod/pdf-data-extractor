@@ -1,4 +1,8 @@
 import main
+from src.pdf_data_extractor.schemas import (
+    DocumentExtractionResult,
+    GenericDocumentData,
+)
 
 
 def test_main_uses_pdf_classification_flow(
@@ -16,7 +20,12 @@ def test_main_uses_pdf_classification_flow(
     def fake_classify_pdf_with_groq(pdf_path):
         nonlocal captured_path
         captured_path = pdf_path
-        return '{"document_type":"generic"}'
+        return DocumentExtractionResult(
+            document_type="generic",
+            data=GenericDocumentData(
+                title="Meeting Notes",
+            ),
+        )
 
     monkeypatch.setattr(
         main,
@@ -30,4 +39,5 @@ def test_main_uses_pdf_classification_flow(
 
     assert str(captured_path) == "data/generic.pdf"
     assert "Final response:" in output
-    assert '{"document_type":"generic"}' in output
+    assert '"document_type": "generic"' in output
+    assert '"title": "Meeting Notes"' in output

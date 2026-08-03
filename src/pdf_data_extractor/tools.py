@@ -1,6 +1,7 @@
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from src.pdf_data_extractor.schemas import (
+    DocumentExtractionResult,
     GenericDocumentData,
     InvoiceData,
     ReportData,
@@ -101,7 +102,7 @@ def extract_invoice_fields(
     tax: float | None = None,
     total: float | None = None,
     currency: str = "USD",
-) -> dict[str, Any]:
+) -> DocumentExtractionResult:
     """
     Validate and return structured fields extracted from an invoice.
 
@@ -120,10 +121,10 @@ def extract_invoice_fields(
         currency=currency.upper(),
     )
 
-    return {
-        "document_type": "invoice",
-        "data": invoice.model_dump(),
-    }
+    return DocumentExtractionResult(
+        document_type="invoice",
+        data=invoice,
+    )
 
 def extract_resume_fields(
     full_name: str | None = None,
@@ -134,7 +135,7 @@ def extract_resume_fields(
     skills: list[str] | None = None,
     education: list[str] | None = None,
     experience: list[str] | None = None,
-) -> dict[str, Any]:
+) -> DocumentExtractionResult:
     """
     Validate and return structured fields extracted from a resume.
 
@@ -152,10 +153,10 @@ def extract_resume_fields(
         experience=experience or [],
     )
 
-    return {
-        "document_type": "resume",
-        "data": resume.model_dump(),
-    }
+    return DocumentExtractionResult(
+        document_type="resume",
+        data=resume,
+    )
 
 
 def extract_receipt_fields(
@@ -170,7 +171,7 @@ def extract_receipt_fields(
     payment_method: str | None = None,
     change_due: float | None = None,
     currency: str = "USD",
-) -> dict[str, Any]:
+) -> DocumentExtractionResult:
     """
     Validate and return structured fields extracted from a receipt.
 
@@ -191,10 +192,10 @@ def extract_receipt_fields(
         currency=currency.upper(),
     )
 
-    return {
-        "document_type": "receipt",
-        "data": receipt.model_dump(),
-    }
+    return DocumentExtractionResult(
+        document_type="receipt",
+        data=receipt,
+    )
 
 
 def extract_report_fields(
@@ -207,7 +208,7 @@ def extract_report_fields(
     findings: list[str] | None = None,
     recommendations: list[str] | None = None,
     conclusion: str | None = None,
-) -> dict[str, Any]:
+) -> DocumentExtractionResult:
     """
     Validate and return structured fields extracted from a report.
 
@@ -226,10 +227,10 @@ def extract_report_fields(
         conclusion=conclusion,
     )
 
-    return {
-        "document_type": "report",
-        "data": report.model_dump(),
-    }
+    return DocumentExtractionResult(
+        document_type="report",
+        data=report,
+    )
 
 
 def extract_generic_fields(
@@ -240,7 +241,7 @@ def extract_generic_fields(
     summary: str | None = None,
     key_points: list[str] | None = None,
     document_text_excerpt: str | None = None,
-) -> dict[str, Any]:
+) -> DocumentExtractionResult:
     """
     Validate and return structured fields extracted from a generic document.
 
@@ -257,7 +258,7 @@ def extract_generic_fields(
         document_text_excerpt=document_text_excerpt,
     )
 
-    return {
-        "document_type": "generic",
-        "data": generic_document.model_dump(),
-    }
+    return DocumentExtractionResult(
+        document_type="generic",
+        data=generic_document,
+    )

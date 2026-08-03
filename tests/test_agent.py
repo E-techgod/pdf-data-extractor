@@ -8,6 +8,14 @@ from src.pdf_data_extractor.agent import (
     classify_pdf_with_groq,
     classify_with_groq,
 )
+from src.pdf_data_extractor.schemas import (
+    DocumentExtractionResult,
+    GenericDocumentData,
+    InvoiceData,
+    ReceiptData,
+    ReportData,
+    ResumeData,
+)
 
 
 def make_tool_call(
@@ -36,9 +44,7 @@ def make_response(
     )
 
     return SimpleNamespace(
-        choices=[
-            SimpleNamespace(message=message)
-        ]
+        choices=[SimpleNamespace(message=message)]
     )
 
 
@@ -52,13 +58,20 @@ def make_fake_client(
     return client
 
 
-def test_executes_tool_and_returns_final_response() -> None:
+def test_executes_tool_and_returns_typed_final_response() -> None:
     tool_call = make_tool_call(arguments="{}")
+    final_result = DocumentExtractionResult(
+        document_type="invoice",
+        data=InvoiceData(
+            invoice_number="123",
+            total=50,
+        ),
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is an invoice."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -67,17 +80,24 @@ def test_executes_tool_and_returns_final_response() -> None:
         client=client,
     )
 
-    assert result == "The document is an invoice."
+    assert result == final_result
     assert client.chat.completions.create.call_count == 2
 
 
 def test_sends_tool_result_back_to_model() -> None:
     tool_call = make_tool_call(arguments="{}")
+    final_result = DocumentExtractionResult(
+        document_type="resume",
+        data=ResumeData(
+            full_name="Elias Arellano Campos",
+        ),
+        warnings=["Not used in assertion."],
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is a resume."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -109,11 +129,17 @@ def test_sends_tool_result_back_to_model() -> None:
 
 def test_uses_auto_tool_choice_on_first_call() -> None:
     tool_call = make_tool_call(arguments="{}")
+    final_result = DocumentExtractionResult(
+        document_type="invoice",
+        data=InvoiceData(
+            invoice_number="123",
+        ),
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is an invoice."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -129,11 +155,17 @@ def test_uses_auto_tool_choice_on_first_call() -> None:
 
 def test_uses_auto_tool_choice_after_first_call() -> None:
     tool_call = make_tool_call(arguments="{}")
+    final_result = DocumentExtractionResult(
+        document_type="invoice",
+        data=InvoiceData(
+            invoice_number="123",
+        ),
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is an invoice."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -149,11 +181,18 @@ def test_uses_auto_tool_choice_after_first_call() -> None:
 
 def test_accepts_python_dict_style_tool_arguments() -> None:
     tool_call = make_tool_call(arguments="{}")
+    final_result = DocumentExtractionResult(
+        document_type="invoice",
+        data=InvoiceData(
+            invoice_number="123",
+            total=50,
+        ),
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is an invoice."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -162,16 +201,22 @@ def test_accepts_python_dict_style_tool_arguments() -> None:
         client=client,
     )
 
-    assert result == "The document is an invoice."
+    assert result == final_result
 
 
 def test_accepts_preparsed_tool_arguments() -> None:
     tool_call = make_tool_call(arguments={})
+    final_result = DocumentExtractionResult(
+        document_type="invoice",
+        data=InvoiceData(
+            invoice_number="123",
+        ),
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is a resume."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -180,7 +225,7 @@ def test_accepts_preparsed_tool_arguments() -> None:
         client=client,
     )
 
-    assert result == "The document is a resume."
+    assert result == final_result
 
 
 def test_ignores_model_supplied_document_text() -> None:
@@ -189,11 +234,17 @@ def test_ignores_model_supplied_document_text() -> None:
             '{"document_text": "Receipt. Subtotal. Sales tax."}'
         )
     )
+    final_result = DocumentExtractionResult(
+        document_type="invoice",
+        data=InvoiceData(
+            invoice_number="123",
+        ),
+    )
 
     client = make_fake_client(
         make_response(tool_calls=[tool_call]),
         make_response(
-            content="The document is an invoice."
+            content=final_result.model_dump_json()
         ),
     )
 
@@ -202,7 +253,7 @@ def test_ignores_model_supplied_document_text() -> None:
         client=client,
     )
 
-    assert result == "The document is an invoice."
+    assert result == final_result
 
 
 def test_rejects_empty_document() -> None:
@@ -315,6 +366,24 @@ def test_rejects_empty_final_response() -> None:
         )
 
 
+def test_rejects_non_json_final_response() -> None:
+    tool_call = make_tool_call(arguments="{}")
+
+    client = make_fake_client(
+        make_response(tool_calls=[tool_call]),
+        make_response(content="The document is an invoice."),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="non-JSON final response",
+    ):
+        classify_with_groq(
+            "Invoice Number: 123. Amount Due: $50.",
+            client=client,
+        )
+
+
 def test_supports_multiple_tool_rounds() -> None:
     classify_call = make_tool_call(
         arguments="{}",
@@ -334,12 +403,7 @@ def test_supports_multiple_tool_rounds() -> None:
     client = make_fake_client(
         make_response(tool_calls=[classify_call]),
         make_response(tool_calls=[extract_call]),
-        make_response(
-            content=(
-                "The document is an invoice. "
-                "Invoice 123 from ACME Corp totals $50."
-            )
-        ),
+        make_response(content="ignored"),
     )
 
     result = classify_with_groq(
@@ -347,7 +411,9 @@ def test_supports_multiple_tool_rounds() -> None:
         client=client,
     )
 
-    assert "Invoice 123" in result
+    assert result.document_type == "invoice"
+    assert isinstance(result.data, InvoiceData)
+    assert result.data.invoice_number == "123"
     assert client.chat.completions.create.call_count == 3
 
     third_call = client.chat.completions.create.call_args_list[2]
@@ -362,7 +428,7 @@ def test_supports_multiple_tool_rounds() -> None:
     assert tool_messages[0]["name"] == "classify_document"
     assert tool_messages[1]["name"] == "extract_invoice_fields"
     assert (
-        '"invoice_number": "123"'
+        '"invoice_number":"123"'
         in tool_messages[1]["content"]
     )
 
@@ -390,12 +456,7 @@ def test_supports_receipt_extraction_tool_round() -> None:
     client = make_fake_client(
         make_response(tool_calls=[classify_call]),
         make_response(tool_calls=[extract_call]),
-        make_response(
-            content=(
-                "The document is a receipt. "
-                "Receipt 1001 from HEB totals $13.53."
-            )
-        ),
+        make_response(content="ignored"),
     )
 
     result = classify_with_groq(
@@ -404,7 +465,9 @@ def test_supports_receipt_extraction_tool_round() -> None:
         client=client,
     )
 
-    assert "Receipt 1001" in result
+    assert result.document_type == "receipt"
+    assert isinstance(result.data, ReceiptData)
+    assert result.data.receipt_number == "1001"
 
     third_call = client.chat.completions.create.call_args_list[2]
     tool_messages = [
@@ -416,7 +479,7 @@ def test_supports_receipt_extraction_tool_round() -> None:
 
     assert len(tool_messages) == 2
     assert tool_messages[1]["name"] == "extract_receipt_fields"
-    assert '"document_type": "receipt"' in tool_messages[1]["content"]
+    assert '"document_type":"receipt"' in tool_messages[1]["content"]
 
 
 def test_supports_report_extraction_tool_round() -> None:
@@ -439,12 +502,7 @@ def test_supports_report_extraction_tool_round() -> None:
     client = make_fake_client(
         make_response(tool_calls=[classify_call]),
         make_response(tool_calls=[extract_call]),
-        make_response(
-            content=(
-                "The document is a report. "
-                "Customer Retention Analysis concludes the strategy is working."
-            )
-        ),
+        make_response(content="ignored"),
     )
 
     result = classify_with_groq(
@@ -452,19 +510,9 @@ def test_supports_report_extraction_tool_round() -> None:
         client=client,
     )
 
-    assert "Customer Retention Analysis" in result
-
-    third_call = client.chat.completions.create.call_args_list[2]
-    tool_messages = [
-        message
-        for message in third_call.kwargs["messages"]
-        if isinstance(message, dict)
-        and message.get("role") == "tool"
-    ]
-
-    assert len(tool_messages) == 2
-    assert tool_messages[1]["name"] == "extract_report_fields"
-    assert '"document_type": "report"' in tool_messages[1]["content"]
+    assert result.document_type == "report"
+    assert isinstance(result.data, ReportData)
+    assert result.data.title == "Customer Retention Analysis"
 
 
 def test_supports_generic_extraction_tool_round() -> None:
@@ -486,12 +534,7 @@ def test_supports_generic_extraction_tool_round() -> None:
     client = make_fake_client(
         make_response(tool_calls=[classify_call]),
         make_response(tool_calls=[extract_call]),
-        make_response(
-            content=(
-                "The document is generic. "
-                "Project Kickoff Notes summarizes the kickoff meeting."
-            )
-        ),
+        make_response(content="ignored"),
     )
 
     result = classify_with_groq(
@@ -499,19 +542,9 @@ def test_supports_generic_extraction_tool_round() -> None:
         client=client,
     )
 
-    assert "Project Kickoff Notes" in result
-
-    third_call = client.chat.completions.create.call_args_list[2]
-    tool_messages = [
-        message
-        for message in third_call.kwargs["messages"]
-        if isinstance(message, dict)
-        and message.get("role") == "tool"
-    ]
-
-    assert len(tool_messages) == 2
-    assert tool_messages[1]["name"] == "extract_generic_fields"
-    assert '"document_type": "generic"' in tool_messages[1]["content"]
+    assert result.document_type == "generic"
+    assert isinstance(result.data, GenericDocumentData)
+    assert result.data.title == "Project Kickoff Notes"
 
 
 def test_supports_extraction_tool_on_first_round() -> None:
@@ -527,12 +560,7 @@ def test_supports_extraction_tool_on_first_round() -> None:
 
     client = make_fake_client(
         make_response(tool_calls=[extract_call]),
-        make_response(
-            content=(
-                "The document is generic. "
-                "AI Engineer Roadmap is a six-month roadmap."
-            )
-        ),
+        make_response(content="ignored"),
     )
 
     result = classify_with_groq(
@@ -540,7 +568,9 @@ def test_supports_extraction_tool_on_first_round() -> None:
         client=client,
     )
 
-    assert "AI Engineer Roadmap" in result
+    assert result.document_type == "generic"
+    assert isinstance(result.data, GenericDocumentData)
+    assert result.data.title == "AI Engineer Roadmap"
 
     second_call = client.chat.completions.create.call_args_list[1]
     tool_messages = [
@@ -552,7 +582,7 @@ def test_supports_extraction_tool_on_first_round() -> None:
 
     assert len(tool_messages) == 1
     assert tool_messages[0]["name"] == "extract_generic_fields"
-    assert '"document_type": "generic"' in tool_messages[0]["content"]
+    assert '"document_type":"generic"' in tool_messages[0]["content"]
 
 
 def test_raises_when_tool_round_limit_is_exceeded() -> None:
@@ -585,20 +615,16 @@ def test_classifies_text_extracted_from_pdf(
     Amount Due: $125.00
     """
 
-    tool_call = make_tool_call(
-        arguments=(
-            '{"document_text": '
-            '"Invoice Number: 987. '
-            'Bill To: Example Customer. '
-            'Amount Due: $125.00."}'
-        )
+    classify_call = make_tool_call(arguments="{}")
+    extract_call = make_tool_call(
+        name="extract_invoice_fields",
+        arguments='{"invoice_number": "987", "total": 125.0}',
     )
 
     client = make_fake_client(
-        make_response(tool_calls=[tool_call]),
-        make_response(
-            content="The PDF is classified as an invoice."
-        ),
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+        make_response(content="ignored"),
     )
 
     result = classify_pdf_with_groq(
@@ -606,9 +632,9 @@ def test_classifies_text_extracted_from_pdf(
         client=client,
     )
 
-    assert result == (
-        "The PDF is classified as an invoice."
-    )
+    assert result.document_type == "invoice"
+    assert isinstance(result.data, InvoiceData)
+    assert result.data.invoice_number == "987"
     mock_extract_pdf_text.assert_called_once_with(
         "data/invoice.pdf"
     )

@@ -2,6 +2,14 @@ import pytest
 from pydantic import ValidationError
 
 from src.pdf_data_extractor.agent import _build_assistant_tool_message
+from src.pdf_data_extractor.schemas import (
+    DocumentExtractionResult,
+    GenericDocumentData,
+    InvoiceData,
+    ReceiptData,
+    ReportData,
+    ResumeData,
+)
 from src.pdf_data_extractor.tools import (
     classify_document,
     extract_generic_fields,
@@ -129,6 +137,7 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
         ],
     }
 
+
 def test_extracts_invoice_fields() -> None:
     result = extract_invoice_fields(
         invoice_number="INV-1001",
@@ -142,14 +151,13 @@ def test_extracts_invoice_fields() -> None:
         currency="usd",
     )
 
-    assert result["document_type"] == "invoice"
-
-    invoice = result["data"]
-
-    assert invoice["invoice_number"] == "INV-1001"
-    assert invoice["vendor"] == "Example Services LLC"
-    assert invoice["total"] == 541.25
-    assert invoice["currency"] == "USD"
+    assert isinstance(result, DocumentExtractionResult)
+    assert result.document_type == "invoice"
+    assert isinstance(result.data, InvoiceData)
+    assert result.data.invoice_number == "INV-1001"
+    assert result.data.vendor == "Example Services LLC"
+    assert result.data.total == 541.25
+    assert result.data.currency == "USD"
 
 
 def test_invoice_allows_missing_fields() -> None:
@@ -158,11 +166,9 @@ def test_invoice_allows_missing_fields() -> None:
         total=125.00,
     )
 
-    invoice = result["data"]
-
-    assert invoice["vendor"] == "Example Services LLC"
-    assert invoice["invoice_number"] is None
-    assert invoice["total"] == 125.00
+    assert result.data.vendor == "Example Services LLC"
+    assert result.data.invoice_number is None
+    assert result.data.total == 125.00
 
 
 def test_invoice_rejects_negative_total() -> None:
@@ -171,6 +177,7 @@ def test_invoice_rejects_negative_total() -> None:
             vendor="Example Services LLC",
             total=-50.00,
         )
+
 
 def test_extracts_resume_fields() -> None:
     result = extract_resume_fields(
@@ -196,15 +203,13 @@ def test_extracts_resume_fields() -> None:
         ],
     )
 
-    assert result["document_type"] == "resume"
-
-    resume = result["data"]
-
-    assert resume["full_name"] == "Elias Arellano Campos"
-    assert resume["email"] == "elias@example.com"
-    assert "Python" in resume["skills"]
-    assert len(resume["education"]) == 1
-    assert len(resume["experience"]) == 1
+    assert result.document_type == "resume"
+    assert isinstance(result.data, ResumeData)
+    assert result.data.full_name == "Elias Arellano Campos"
+    assert result.data.email == "elias@example.com"
+    assert "Python" in result.data.skills
+    assert len(result.data.education) == 1
+    assert len(result.data.experience) == 1
 
 
 def test_resume_allows_missing_fields() -> None:
@@ -213,26 +218,25 @@ def test_resume_allows_missing_fields() -> None:
         skills=["Python"],
     )
 
-    resume = result["data"]
-
-    assert resume["full_name"] == "Elias Arellano Campos"
-    assert resume["email"] is None
-    assert resume["education"] == []
-    assert resume["experience"] == []
+    assert result.data.full_name == "Elias Arellano Campos"
+    assert result.data.email is None
+    assert result.data.education == []
 
 
 def test_resume_does_not_share_mutable_lists() -> None:
     first_result = extract_resume_fields(
         full_name="Candidate One",
     )
-
     second_result = extract_resume_fields(
         full_name="Candidate Two",
     )
 
-    first_result["data"]["skills"].append("Python")
+    assert isinstance(first_result.data, ResumeData)
+    assert isinstance(second_result.data, ResumeData)
 
-    assert second_result["data"]["skills"] == []
+    first_result.data.skills.append("Python")
+
+    assert second_result.data.skills == []
 
 
 def test_extracts_receipt_fields() -> None:
@@ -241,10 +245,7 @@ def test_extracts_receipt_fields() -> None:
         receipt_number="RCPT-1001",
         transaction_date="August 1, 2026",
         transaction_time="14:35",
-        items=[
-            "Milk",
-            "Bread",
-        ],
+        items=["Milk", "Bread"],
         subtotal=12.50,
         tax=1.03,
         total=13.53,
@@ -253,15 +254,13 @@ def test_extracts_receipt_fields() -> None:
         currency="usd",
     )
 
-    assert result["document_type"] == "receipt"
-
-    receipt = result["data"]
-
-    assert receipt["merchant"] == "HEB"
-    assert receipt["receipt_number"] == "RCPT-1001"
-    assert receipt["total"] == 13.53
-    assert receipt["payment_method"] == "Visa"
-    assert receipt["currency"] == "USD"
+    assert result.document_type == "receipt"
+    assert isinstance(result.data, ReceiptData)
+    assert result.data.merchant == "HEB"
+    assert result.data.receipt_number == "RCPT-1001"
+    assert result.data.total == 13.53
+    assert result.data.payment_method == "Visa"
+    assert result.data.currency == "USD"
 
 
 def test_receipt_allows_missing_fields() -> None:
@@ -270,12 +269,10 @@ def test_receipt_allows_missing_fields() -> None:
         total=13.53,
     )
 
-    receipt = result["data"]
-
-    assert receipt["merchant"] == "HEB"
-    assert receipt["receipt_number"] is None
-    assert receipt["items"] == []
-    assert receipt["total"] == 13.53
+    assert result.data.merchant == "HEB"
+    assert result.data.receipt_number is None
+    assert result.data.items == []
+    assert result.data.total == 13.53
 
 
 def test_receipt_rejects_negative_total() -> None:
@@ -290,14 +287,16 @@ def test_receipt_does_not_share_mutable_lists() -> None:
     first_result = extract_receipt_fields(
         merchant="Store One",
     )
-
     second_result = extract_receipt_fields(
         merchant="Store Two",
     )
 
-    first_result["data"]["items"].append("Milk")
+    assert isinstance(first_result.data, ReceiptData)
+    assert isinstance(second_result.data, ReceiptData)
 
-    assert second_result["data"]["items"] == []
+    first_result.data.items.append("Milk")
+
+    assert second_result.data.items == []
 
 
 def test_extracts_report_fields() -> None:
@@ -318,15 +317,13 @@ def test_extracts_report_fields() -> None:
         conclusion="The retention strategy is producing measurable gains.",
     )
 
-    assert result["document_type"] == "report"
-
-    report = result["data"]
-
-    assert report["title"] == "Customer Retention Analysis"
-    assert report["author"] == "Elias Arellano Campos"
-    assert len(report["findings"]) == 2
-    assert len(report["recommendations"]) == 1
-    assert report["conclusion"] == (
+    assert result.document_type == "report"
+    assert isinstance(result.data, ReportData)
+    assert result.data.title == "Customer Retention Analysis"
+    assert result.data.author == "Elias Arellano Campos"
+    assert len(result.data.findings) == 2
+    assert len(result.data.recommendations) == 1
+    assert result.data.conclusion == (
         "The retention strategy is producing measurable gains."
     )
 
@@ -337,26 +334,26 @@ def test_report_allows_missing_fields() -> None:
         findings=["Retention improved by 12%."],
     )
 
-    report = result["data"]
-
-    assert report["title"] == "Customer Retention Analysis"
-    assert report["author"] is None
-    assert report["findings"] == ["Retention improved by 12%."]
-    assert report["recommendations"] == []
+    assert result.data.title == "Customer Retention Analysis"
+    assert result.data.author is None
+    assert result.data.findings == ["Retention improved by 12%."]
+    assert result.data.recommendations == []
 
 
 def test_report_does_not_share_mutable_lists() -> None:
     first_result = extract_report_fields(
         title="Report One",
     )
-
     second_result = extract_report_fields(
         title="Report Two",
     )
 
-    first_result["data"]["findings"].append("Finding one")
+    assert isinstance(first_result.data, ReportData)
+    assert isinstance(second_result.data, ReportData)
 
-    assert second_result["data"]["findings"] == []
+    first_result.data.findings.append("Finding one")
+
+    assert second_result.data.findings == []
 
 
 def test_extracts_generic_fields() -> None:
@@ -373,14 +370,12 @@ def test_extracts_generic_fields() -> None:
         document_text_excerpt="Kickoff meeting notes for the PDF extractor project.",
     )
 
-    assert result["document_type"] == "generic"
-
-    generic_document = result["data"]
-
-    assert generic_document["title"] == "Project Kickoff Notes"
-    assert generic_document["document_date"] == "August 2, 2026"
-    assert generic_document["author"] == "Elias Arellano Campos"
-    assert len(generic_document["key_points"]) == 2
+    assert result.document_type == "generic"
+    assert isinstance(result.data, GenericDocumentData)
+    assert result.data.title == "Project Kickoff Notes"
+    assert result.data.document_date == "August 2, 2026"
+    assert result.data.author == "Elias Arellano Campos"
+    assert len(result.data.key_points) == 2
 
 
 def test_generic_allows_missing_fields() -> None:
@@ -389,23 +384,36 @@ def test_generic_allows_missing_fields() -> None:
         key_points=["Reviewed next steps."],
     )
 
-    generic_document = result["data"]
-
-    assert generic_document["title"] == "Meeting Notes"
-    assert generic_document["author"] is None
-    assert generic_document["key_points"] == ["Reviewed next steps."]
-    assert generic_document["summary"] is None
+    assert result.data.title == "Meeting Notes"
+    assert result.data.author is None
+    assert result.data.key_points == ["Reviewed next steps."]
+    assert result.data.summary is None
 
 
 def test_generic_does_not_share_mutable_lists() -> None:
     first_result = extract_generic_fields(
         title="Document One",
     )
-
     second_result = extract_generic_fields(
         title="Document Two",
     )
 
-    first_result["data"]["key_points"].append("Point one")
+    assert isinstance(first_result.data, GenericDocumentData)
+    assert isinstance(second_result.data, GenericDocumentData)
 
-    assert second_result["data"]["key_points"] == []
+    first_result.data.key_points.append("Point one")
+
+    assert second_result.data.key_points == []
+
+
+def test_top_level_result_rejects_mismatched_data_type() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="document_type must match data.document_type",
+    ):
+        DocumentExtractionResult(
+            document_type="invoice",
+            data=GenericDocumentData(
+                title="Notes",
+            ),
+        )

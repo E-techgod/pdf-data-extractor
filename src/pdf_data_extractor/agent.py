@@ -6,12 +6,22 @@ from typing import Any
 from groq import Groq
 
 from src.pdf_data_extractor.config import get_groq_api_key
+from src.pdf_data_extractor.pdf_loader import extract_pdf_text
+from src.pdf_data_extractor.schemas import (
+    DocumentExtractionResult,
+)
 from src.pdf_data_extractor.tool_registry import TOOL_REGISTRY
 from src.pdf_data_extractor.tool_schemas import TOOLS
-from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 
 DEFAULT_MODEL = "openai/gpt-oss-20b"
 MAX_TOOL_ROUNDS = 5
+EXTRACTION_TOOL_NAMES = {
+    "extract_invoice_fields",
+    "extract_resume_fields",
+    "extract_receipt_fields",
+    "extract_report_fields",
+    "extract_generic_fields",
+}
 
 
 def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
@@ -69,12 +79,39 @@ def _parse_tool_arguments(
     return parsed_arguments
 
 
+def _serialize_tool_result(tool_result: Any) -> str:
+    if isinstance(tool_result, DocumentExtractionResult):
+        return tool_result.model_dump_json()
+
+    return json.dumps(tool_result)
+
+
+def _parse_final_result(
+    final_content: str,
+) -> DocumentExtractionResult:
+    try:
+        parsed_content = json.loads(final_content)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Groq returned a non-JSON final response."
+        ) from exc
+
+    try:
+        return DocumentExtractionResult.model_validate(
+            parsed_content
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Groq returned an invalid final structured response."
+        ) from exc
+
+
 def classify_pdf_with_groq(
     file_path: str | Path,
     *,
     model: str = DEFAULT_MODEL,
     client: Any | None = None,
-) -> str:
+) -> DocumentExtractionResult:
     document_text = extract_pdf_text(file_path)
 
     return classify_with_groq(
@@ -93,7 +130,7 @@ def classify_with_groq(
     *,
     model: str = DEFAULT_MODEL,
     client: Any | None = None,
-) -> str:
+) -> DocumentExtractionResult:
     if not document_text.strip():
         raise ValueError("document_text cannot be empty")
 
@@ -118,8 +155,10 @@ def classify_with_groq(
                 "9. Never infer or invent missing values.\n"
                 "10. Omit unavailable optional arguments or use null.\n"
                 "11. After all required tools are complete, return the final "
-                "structured extraction result.\n"
-                "12. Do not offer additional help or add conversational closing text."
+                "structured extraction result as JSON with top-level keys "
+                'document_type, data, and warnings.\n'
+                "12. The data object must match the extracted document type.\n"
+                "13. Do not offer additional help or add conversational closing text."
             ),
         },
         {
@@ -132,6 +171,9 @@ def classify_with_groq(
     ]
 
     tool_choice = "auto"
+    last_extraction_result: (
+        DocumentExtractionResult | None
+    ) = None
 
     for round_index in range(MAX_TOOL_ROUNDS + 1):
         response = groq_client.chat.completions.create(
@@ -151,6 +193,9 @@ def classify_with_groq(
             )
 
         if not tool_calls:
+            if last_extraction_result is not None:
+                return last_extraction_result
+
             final_content = assistant_message.content
 
             if not final_content:
@@ -158,7 +203,7 @@ def classify_with_groq(
                     "Groq returned an empty final response."
                 )
 
-            return final_content
+            return _parse_final_result(final_content)
 
         if round_index == MAX_TOOL_ROUNDS:
             raise RuntimeError(
@@ -198,12 +243,23 @@ def classify_with_groq(
                     f"Invalid arguments for tool: {tool_name}"
                 ) from exc
 
+            if (
+                tool_name in EXTRACTION_TOOL_NAMES
+                and isinstance(
+                    tool_result,
+                    DocumentExtractionResult,
+                )
+            ):
+                last_extraction_result = tool_result
+
             messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "name": tool_name,
-                    "content": json.dumps(tool_result),
+                    "content": _serialize_tool_result(
+                        tool_result
+                    ),
                 }
             )
     raise RuntimeError(
@@ -216,7 +272,7 @@ def analyze_document_with_groq(
     *,
     model: str = DEFAULT_MODEL,
     client: Any | None = None,
-) -> str:
+) -> DocumentExtractionResult:
     return classify_with_groq(
         document_text=document_text,
         model=model,
