@@ -1,5 +1,5 @@
 from typing import Literal, TypedDict, Any
-from src.pdf_data_extractor.schemas import InvoiceData
+from src.pdf_data_extractor.schemas import InvoiceData, ResumeData
 
 
 DocumentType = Literal[
@@ -116,4 +116,36 @@ def extract_invoice_fields(
     return {
         "document_type": "invoice",
         "data": invoice.model_dump(),
+    }
+
+def extract_resume_fields(
+    full_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    location: str | None = None,
+    professional_summary: str | None = None,
+    skills: list[str] | None = None,
+    education: list[str] | None = None,
+    experience: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Validate and return structured fields extracted from a resume.
+
+    The LLM identifies the resume information.
+    This function validates and normalizes the result.
+    """
+    resume = ResumeData(
+        full_name=full_name,
+        email=email,
+        phone=phone,
+        location=location,
+        professional_summary=professional_summary,
+        skills=skills or [],
+        education=education or [],
+        experience=experience or [],
+    )
+
+    return {
+        "document_type": "resume",
+        "data": resume.model_dump(),
     }

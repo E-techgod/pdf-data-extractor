@@ -4,10 +4,12 @@ from pydantic import ValidationError
 from src.pdf_data_extractor.agent import (
     _build_assistant_tool_message,
 )
-from src.pdf_data_extractor.tools import classify_document
 
-from src.pdf_data_extractor.tools import extract_invoice_fields
-
+from src.pdf_data_extractor.tools import (
+    classify_document, 
+    extract_invoice_fields, 
+    extract_resume_fields
+)
 
 def test_classifies_invoice() -> None:
     document = """
@@ -200,3 +202,65 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+def test_extracts_resume_fields() -> None:
+    result = extract_resume_fields(
+        full_name="Elias Arellano Campos",
+        email="elias@example.com",
+        phone="832-555-0100",
+        location="Houston, Texas",
+        professional_summary=(
+            "Computer Science graduate focused on applied AI engineering."
+        ),
+        skills=[
+            "Python",
+            "SQL",
+            "PyTorch",
+            "FastAPI",
+        ],
+        education=[
+            "B.S. Computer Science, University of Houston, May 2026"
+        ],
+        experience=[
+            "AI Systems Implementation Associate, "
+            "American Smart Business LLC, 2026"
+        ],
+    )
+
+    assert result["document_type"] == "resume"
+
+    resume = result["data"]
+
+    assert resume["full_name"] == "Elias Arellano Campos"
+    assert resume["email"] == "elias@example.com"
+    assert "Python" in resume["skills"]
+    assert len(resume["education"]) == 1
+    assert len(resume["experience"]) == 1
+
+
+def test_resume_allows_missing_fields() -> None:
+    result = extract_resume_fields(
+        full_name="Elias Arellano Campos",
+        skills=["Python"],
+    )
+
+    resume = result["data"]
+
+    assert resume["full_name"] == "Elias Arellano Campos"
+    assert resume["email"] is None
+    assert resume["education"] == []
+    assert resume["experience"] == []
+
+
+def test_resume_does_not_share_mutable_lists() -> None:
+    first_result = extract_resume_fields(
+        full_name="Candidate One",
+    )
+
+    second_result = extract_resume_fields(
+        full_name="Candidate Two",
+    )
+
+    first_result["data"]["skills"].append("Python")
+
+    assert second_result["data"]["skills"] == []

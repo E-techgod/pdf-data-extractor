@@ -97,14 +97,18 @@ def classify_with_groq(
         {
             "role": "system",
             "content": (
-                "You are a document analysis assistant. "
-                "Use the available tools to analyze the provided "
-                "document. Start by calling the classification tool. "
-                "The classification tool reads the document from "
-                "application state, so call it with empty JSON "
-                "arguments: {}. After classification, you may call "
-                "additional tools if needed. Once the tool work is "
-                "complete, respond to the user with the final result."
+                "You are a document extraction assistant.\n\n"
+                "Follow this process exactly:\n"
+                "1. First call classify_document using the complete document text.\n"
+                "2. Read the classification tool result.\n"
+                "3. If the result is invoice, call extract_invoice_fields.\n"
+                "4. If the result is resume, call extract_resume_fields.\n"
+                "5. Use only information explicitly found in the document.\n"
+                "6. Never infer or invent missing values.\n"
+                "7. Omit unavailable optional arguments or use null.\n"
+                "8. After all required tools are complete, return the final "
+                "structured extraction result.\n"
+                "9. Do not offer additional help or add conversational closing text."
             ),
         },
         {

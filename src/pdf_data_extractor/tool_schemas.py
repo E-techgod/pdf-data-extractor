@@ -84,7 +84,83 @@ EXTRACT_INVOICE_FIELDS_TOOL: dict[str, Any] = {
     },
 }
 
+EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "extract_resume_fields",
+        "description": (
+            "Extract structured candidate information from a document "
+            "that has been identified as a resume. Use only information "
+            "explicitly present in the document. Never infer or invent "
+            "missing details."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "full_name": {
+                    "type": ["string", "null"],
+                    "description": "Candidate's complete name.",
+                },
+                "email": {
+                    "type": ["string", "null"],
+                    "description": "Candidate's email address.",
+                },
+                "phone": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Candidate's phone number exactly as displayed."
+                    ),
+                },
+                "location": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Candidate's city, state, country, or displayed location."
+                    ),
+                },
+                "professional_summary": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "A concise summary based only on the resume content."
+                    ),
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": (
+                        "Technical and professional skills explicitly listed."
+                    ),
+                },
+                "education": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": (
+                        "Education entries preserving school, degree, "
+                        "field, and dates when present."
+                    ),
+                },
+                "experience": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": (
+                        "Work experience entries preserving company, title, "
+                        "dates, and responsibilities when present."
+                    ),
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOLS: list[dict[str, Any]] = [
     CLASSIFY_DOCUMENT_TOOL,
     EXTRACT_INVOICE_FIELDS_TOOL,
+    EXTRACT_RESUME_FIELDS_TOOL,
 ]
