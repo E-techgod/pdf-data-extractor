@@ -10,6 +10,11 @@ DocumentType = Literal[
     "generic",
 ]
 
+class DocumentClassification(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_type: DocumentType
+    reason: str = Field(min_length=1)
 
 class InvoiceData(BaseModel):
     model_config = ConfigDict(extra="forbid")

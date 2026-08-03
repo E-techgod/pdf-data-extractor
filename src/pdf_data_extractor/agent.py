@@ -8,49 +8,37 @@ from groq import Groq
 from src.pdf_data_extractor.config import get_groq_api_key
 from src.pdf_data_extractor.pdf_loader import extract_pdf_text
 from src.pdf_data_extractor.schemas import (
+    DocumentClassification,
     DocumentExtractionResult,
+    GenericDocumentData,
+    InvoiceData,
+    ReceiptData,
+    ReportData,
+    ResumeData,
 )
-from src.pdf_data_extractor.tool_registry import TOOL_REGISTRY
-from src.pdf_data_extractor.tool_schemas import TOOLS
+from src.pdf_data_extractor.tool_registry import (
+    SPECIALIZED_TOOL_NAMES,
+    SPECIALIZED_TOOL_SCHEMAS,
+    TOOL_REGISTRY,
+)
+from src.pdf_data_extractor.tool_schemas import (
+    CLASSIFY_DOCUMENT_TOOL,
+)
 
 DEFAULT_MODEL = "openai/gpt-oss-20b"
-MAX_TOOL_ROUNDS = 5
-EXTRACTION_TOOL_NAMES = {
-    "extract_invoice_fields",
-    "extract_resume_fields",
-    "extract_receipt_fields",
-    "extract_report_fields",
-    "extract_generic_fields",
+UNREGISTERED_EXTRACTOR_WARNING = (
+    "No specialized extractor is registered for document_type "
+    "'{document_type}'. Returning an empty typed result."
+)
+
+
+EMPTY_DATA_BY_DOCUMENT_TYPE = {
+    "invoice": InvoiceData,
+    "resume": ResumeData,
+    "receipt": ReceiptData,
+    "report": ReportData,
+    "generic": GenericDocumentData,
 }
-EXTRACTION_TOOL_BY_DOCUMENT_TYPE = {
-    "invoice": "extract_invoice_fields",
-    "resume": "extract_resume_fields",
-    "receipt": "extract_receipt_fields",
-    "report": "extract_report_fields",
-    "generic": "extract_generic_fields",
-}
-
-
-def _build_assistant_tool_message(assistant_message: Any) -> dict[str, Any]:
-    message: dict[str, Any] = {
-        "role": "assistant",
-        "content": assistant_message.content or "",
-    }
-
-    if assistant_message.tool_calls:
-        message["tool_calls"] = [
-            {
-                "id": tool_call.id,
-                "type": getattr(tool_call, "type", "function"),
-                "function": {
-                    "name": tool_call.function.name,
-                    "arguments": tool_call.function.arguments,
-                },
-            }
-            for tool_call in assistant_message.tool_calls
-        ]
-
-    return message
 
 
 def _parse_tool_arguments(
@@ -86,40 +74,125 @@ def _parse_tool_arguments(
     return parsed_arguments
 
 
-def _serialize_tool_result(tool_result: Any) -> str:
-    if isinstance(tool_result, DocumentExtractionResult):
-        return tool_result.model_dump_json()
-
-    return json.dumps(tool_result)
-
-
-def _parse_final_result(
-    final_content: str,
-) -> DocumentExtractionResult:
-    try:
-        parsed_content = json.loads(final_content)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            "Groq returned a non-JSON final response."
-        ) from exc
-
-    try:
-        return DocumentExtractionResult.model_validate(
-            parsed_content
-        )
-    except Exception as exc:
-        raise RuntimeError(
-            "Groq returned an invalid final structured response."
-        ) from exc
-
-
-def _build_tool_choice(
+def _build_required_tool_choice(
     tool_name: str,
 ) -> dict[str, Any]:
     return {
         "type": "function",
         "function": {"name": tool_name},
     }
+
+
+def _build_assistant_tool_message(
+    assistant_message: Any,
+) -> dict[str, Any]:
+    message: dict[str, Any] = {
+        "role": "assistant",
+        "content": assistant_message.content or "",
+    }
+
+    if assistant_message.tool_calls:
+        message["tool_calls"] = [
+            {
+                "id": tool_call.id,
+                "type": getattr(tool_call, "type", "function"),
+                "function": {
+                    "name": tool_call.function.name,
+                    "arguments": tool_call.function.arguments,
+                },
+            }
+            for tool_call in assistant_message.tool_calls
+        ]
+
+    return message
+
+
+def _request_required_tool_call(
+    *,
+    client: Any,
+    model: str,
+    messages: list[dict[str, Any]],
+    tool_schema: dict[str, Any],
+    expected_tool_name: str,
+) -> Any:
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        tools=[tool_schema],
+        tool_choice=_build_required_tool_choice(
+            expected_tool_name
+        ),
+        temperature=0,
+    )
+
+    assistant_message = response.choices[0].message
+    tool_calls = assistant_message.tool_calls or []
+
+    if not tool_calls:
+        raise RuntimeError(
+            f"Groq did not call required tool: {expected_tool_name}"
+        )
+
+    if len(tool_calls) != 1:
+        raise RuntimeError(
+            f"Expected one tool call, received {len(tool_calls)}"
+        )
+
+    tool_call = tool_calls[0]
+
+    if tool_call.function.name != expected_tool_name:
+        raise RuntimeError(
+            f"Expected tool {expected_tool_name}, "
+            f"received {tool_call.function.name}"
+        )
+
+    return tool_call
+
+
+def _execute_tool_call(
+    tool_call: Any,
+) -> Any:
+    tool_name = tool_call.function.name
+
+    tool_function = TOOL_REGISTRY.get(tool_name)
+    if tool_function is None:
+        raise ValueError(
+            f"Unknown tool requested: {tool_name}"
+        )
+
+    arguments = _parse_tool_arguments(
+        tool_call.function.arguments,
+        tool_name=tool_name,
+    )
+
+    try:
+        return tool_function(**arguments)
+    except TypeError as exc:
+        raise ValueError(
+            f"Invalid arguments for tool: {tool_name}"
+        ) from exc
+
+
+def _empty_result_for_document_type(
+    document_type: str,
+) -> DocumentExtractionResult:
+    data_model = EMPTY_DATA_BY_DOCUMENT_TYPE[
+        document_type
+    ]()
+
+    return DocumentExtractionResult(
+        document_type=document_type,
+        data=data_model,
+        warnings=[
+            UNREGISTERED_EXTRACTOR_WARNING.format(
+                document_type=document_type
+            )
+        ],
+    )
+
+
+def build_groq_client() -> Groq:
+    return Groq(api_key=get_groq_api_key())
 
 
 def classify_pdf_with_groq(
@@ -137,10 +210,6 @@ def classify_pdf_with_groq(
     )
 
 
-def build_groq_client() -> Groq:
-    return Groq(api_key=get_groq_api_key())
-
-
 def classify_with_groq(
     document_text: str,
     *,
@@ -152,153 +221,124 @@ def classify_with_groq(
 
     groq_client = client or build_groq_client()
 
-    messages: list[dict[str, Any]] = [
+    classification_messages = [
         {
             "role": "system",
             "content": (
-                "You are a document extraction assistant.\n\n"
-                "Follow this process exactly:\n"
-                "1. First call classify_document with an empty JSON object: {}.\n"
-                "The document text is already available in the conversation.\n"
-                "Do not pass document_text or any other argument to classify_document.\n"
-                "2. Read the classification tool result.\n"
-                "3. If the result is invoice, call extract_invoice_fields.\n"
-                "4. If the result is resume, call extract_resume_fields.\n"
-                "5. If the result is receipt, call extract_receipt_fields.\n"
-                "6. If the result is report, call extract_report_fields.\n"
-                "7. If the result is generic, call extract_generic_fields.\n"
-                "8. Use only information explicitly found in the document.\n"
-                "9. Never infer or invent missing values.\n"
-                "10. Omit unavailable optional arguments or use null.\n"
-                "11. After all required tools are complete, return the final "
-                "structured extraction result as JSON with top-level keys "
-                'document_type, data, and warnings.\n'
-                "12. The data object must match the extracted document type.\n"
-                "13. Do not offer additional help or add conversational closing text."
+                "Classify the document into exactly one of these types: "
+                "invoice, resume, receipt, report, or generic. "
+                "Call classify_document with the chosen document_type "
+                "and a brief reason grounded in the document. "
+                "Do not provide prose outside the tool call."
             ),
         },
         {
             "role": "user",
-            "content": (
-                "Classify the following document:\n\n"
-                f"{document_text}"
-            ),
+            "content": document_text,
         },
     ]
 
-    tool_choice = "auto"
-    last_extraction_result: (
-        DocumentExtractionResult | None
-    ) = None
-    pending_extraction_tool: str | None = None
-
-    for round_index in range(MAX_TOOL_ROUNDS + 1):
-        response = groq_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice=tool_choice,
-            temperature=0,
-        )
-
-        assistant_message = response.choices[0].message
-        tool_calls = assistant_message.tool_calls or []
-
-        if round_index == 0 and not tool_calls:
-            raise RuntimeError(
-                "Groq did not return a tool call."
-            )
-
-        if not tool_calls:
-            if last_extraction_result is not None:
-                return last_extraction_result
-
-            final_content = assistant_message.content
-
-            if not final_content and pending_extraction_tool is not None:
-                tool_choice = _build_tool_choice(
-                    pending_extraction_tool
-                )
-                pending_extraction_tool = None
-                continue
-
-            if not final_content:
-                raise RuntimeError(
-                    "Groq returned an empty final response."
-                )
-
-            return _parse_final_result(final_content)
-
-        if round_index == MAX_TOOL_ROUNDS:
-            raise RuntimeError(
-                "Groq exceeded the maximum number of tool rounds."
-            )
-
-        messages.append(
-            _build_assistant_tool_message(
-                assistant_message
-            )
-        )
-
-        for tool_call in tool_calls:
-            tool_name = tool_call.function.name
-
-            if tool_name not in TOOL_REGISTRY:
-                raise ValueError(
-                    f"Unknown tool requested: {tool_name}"
-                )
-
-            arguments = _parse_tool_arguments(
-                tool_call.function.arguments,
-                tool_name=tool_name,
-            )
-
-            tool_function = TOOL_REGISTRY[tool_name]
-
-            if tool_name == "classify_document":
-                arguments = {
-                    "document_text": document_text
-                }
-
-            try:
-                tool_result = tool_function(**arguments)
-            except TypeError as exc:
-                raise ValueError(
-                    f"Invalid arguments for tool: {tool_name}"
-                ) from exc
-
-            if (
-                tool_name in EXTRACTION_TOOL_NAMES
-                and isinstance(
-                    tool_result,
-                    DocumentExtractionResult,
-                )
-            ):
-                last_extraction_result = tool_result
-                pending_extraction_tool = None
-
-            if tool_name == "classify_document":
-                pending_extraction_tool = (
-                    EXTRACTION_TOOL_BY_DOCUMENT_TYPE[
-                        tool_result["document_type"]
-                    ]
-                )
-
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": tool_name,
-                    "content": _serialize_tool_result(
-                        tool_result
-                    ),
-                }
-            )
-
-        tool_choice = "auto"
-    raise RuntimeError(
-        "Groq exceeded the maximum number of tool rounds."
+    classification_tool_call = _request_required_tool_call(
+        client=groq_client,
+        model=model,
+        messages=classification_messages,
+        tool_schema=CLASSIFY_DOCUMENT_TOOL,
+        expected_tool_name="classify_document",
     )
+
+    classification_result = _execute_tool_call(
+        classification_tool_call
+    )
+
+    if not isinstance(
+        classification_result,
+        DocumentClassification,
+    ):
+        raise RuntimeError(
+            "classify_document returned an invalid result."
+        )
+
+    document_type = classification_result.document_type
+    specialized_tool_name = SPECIALIZED_TOOL_NAMES.get(
+        document_type
+    )
+
+    if specialized_tool_name is None:
+        return _empty_result_for_document_type(
+            document_type
+        )
+
+    extraction_messages = [
+        {
+            "role": "system",
+            "content": (
+                "Extract only the requested structured fields from the "
+                f"{document_type} document. Use only information explicitly "
+                "present in the document. Omit unavailable optional fields "
+                "or use null. Do not provide prose outside the tool call."
+            ),
+        },
+        {
+            "role": "user",
+            "content": document_text,
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": getattr(
+                        classification_tool_call,
+                        "id",
+                        "call_classify",
+                    ),
+                    "type": getattr(
+                        classification_tool_call,
+                        "type",
+                        "function",
+                    ),
+                    "function": {
+                        "name": "classify_document",
+                        "arguments": classification_tool_call.function.arguments,
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": getattr(
+                classification_tool_call,
+                "id",
+                "call_classify",
+            ),
+            "name": "classify_document",
+            "content": classification_result.model_dump_json(),
+        },
+    ]
+
+    extraction_tool_call = _request_required_tool_call(
+        client=groq_client,
+        model=model,
+        messages=extraction_messages,
+        tool_schema=SPECIALIZED_TOOL_SCHEMAS[
+            document_type
+        ],
+        expected_tool_name=specialized_tool_name,
+    )
+
+    extraction_result = _execute_tool_call(
+        extraction_tool_call
+    )
+
+    if not isinstance(
+        extraction_result,
+        DocumentExtractionResult,
+    ):
+        raise RuntimeError(
+            f"{specialized_tool_name} returned an invalid result."
+        )
+
+    return extraction_result
 
 
 def analyze_document_with_groq(

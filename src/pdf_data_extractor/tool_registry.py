@@ -10,8 +10,13 @@ from src.pdf_data_extractor.tools import (
     extract_resume_fields,
 )
 
+from src.pdf_data_extractor.tool_schemas import (
+    EXTRACT_INVOICE_FIELDS_TOOL,
+    EXTRACT_RESUME_FIELDS_TOOL,
+)
 
-ToolFunction = Callable[..., dict[str, Any]]
+
+ToolFunction = Callable[..., Any]
 
 TOOL_REGISTRY: dict[str, ToolFunction] = {
     "classify_document": classify_document,
@@ -20,4 +25,14 @@ TOOL_REGISTRY: dict[str, ToolFunction] = {
     "extract_receipt_fields": extract_receipt_fields,
     "extract_report_fields": extract_report_fields,
     "extract_generic_fields": extract_generic_fields,
+}
+
+SPECIALIZED_TOOL_NAMES: dict[str, str] = {
+    "invoice": "extract_invoice_fields",
+    "resume": "extract_resume_fields",
+}
+
+SPECIALIZED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
+    "invoice": EXTRACT_INVOICE_FIELDS_TOOL,
+    "resume": EXTRACT_RESUME_FIELDS_TOOL,
 }

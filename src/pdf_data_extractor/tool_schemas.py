@@ -5,16 +5,38 @@ CLASSIFY_DOCUMENT_TOOL: dict[str, Any] = {
     "function": {
         "name": "classify_document",
         "description": (
-            "Classify a document as an invoice, resume, receipt, "
-            "report, or generic document using the document "
-            "already provided in the conversation context. "
-            "Call this tool with {} only. Do not pass document text "
-            "or any other arguments."
+            "Classify the provided document as invoice, resume, "
+            "receipt, report, or generic."
         ),
         "parameters": {
             "type": "object",
-            "properties": {},
-            "required": [],
+            "properties": {
+                "document_type": {
+                    "type": "string",
+                    "enum": [
+                        "invoice",
+                        "resume",
+                        "receipt",
+                        "report",
+                        "generic",
+                    ],
+                    "description": (
+                        "The single document category that best matches "
+                        "the supplied document."
+                    ),
+                },
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "A brief reason grounded in indicators found "
+                        "inside the supplied document."
+                    ),
+                },
+            },
+            "required": [
+                "document_type",
+                "reason",
+            ],
             "additionalProperties": False,
         },
     },
@@ -404,3 +426,11 @@ TOOLS: list[dict[str, Any]] = [
     EXTRACT_REPORT_FIELDS_TOOL,
     EXTRACT_GENERIC_FIELDS_TOOL,
 ]
+
+SPECIALIZED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
+    "invoice": EXTRACT_INVOICE_FIELDS_TOOL,
+    "resume": EXTRACT_RESUME_FIELDS_TOOL,
+    "receipt": EXTRACT_RECEIPT_FIELDS_TOOL,
+    "report": EXTRACT_REPORT_FIELDS_TOOL,
+    "generic": EXTRACT_GENERIC_FIELDS_TOOL,
+}
