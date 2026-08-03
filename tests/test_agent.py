@@ -10,6 +10,7 @@ from src.pdf_data_extractor.agent import (
     REPORT_EXTRACTION_HINT,
     RESUME_EXTRACTION_HINT,
     UNREGISTERED_EXTRACTOR_WARNING,
+    _classify_document_by_keywords,
     classify_pdf_with_groq,
     classify_with_groq,
 )
@@ -264,6 +265,57 @@ def test_supported_generic_route_returns_validated_data() -> None:
         "function": {"name": "extract_generic_fields"},
     }
     assert GENERIC_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
+
+
+def test_keyword_classifier_marks_generic_roadmap_as_generic() -> None:
+    result = _classify_document_by_keywords(
+        (
+            "AI Engineer Roadmap. Students with no prior coding experience. "
+            "Build something every single week. Portfolio projects on GitHub."
+        )
+    )
+
+    assert result.document_type == "generic"
+
+
+def test_keyword_classifier_overrides_resume_drift_for_generic_document() -> None:
+    classify_call = make_tool_call(
+        name="classify_document",
+        arguments=(
+            '{"document_type": "resume", "reason": "Career roadmap for job seekers."}'
+        ),
+        call_id="call_classify",
+    )
+    extract_call = make_tool_call(
+        name="extract_generic_fields",
+        arguments=(
+            '{"title": "AI Engineer Roadmap", '
+            '"summary": "A six-month plan for becoming job-ready.", '
+            '"key_points": ["Build weekly", "Focus on evaluation"]}'
+        ),
+        call_id="call_extract",
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+    )
+
+    result = classify_with_groq(
+        (
+            "AI Engineer Roadmap. Students with no prior coding experience. "
+            "Build something every single week. Portfolio projects on GitHub."
+        ),
+        client=client,
+    )
+
+    assert result.document_type == "generic"
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    assert (
+        second_call.kwargs["tools"][0]["function"]["name"]
+        == "extract_generic_fields"
+    )
 
 
 def test_supported_receipt_route_returns_validated_data() -> None:

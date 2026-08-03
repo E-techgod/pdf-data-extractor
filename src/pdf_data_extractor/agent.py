@@ -1,5 +1,6 @@
 import ast
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,118 @@ GENERIC_EXTRACTION_HINT = (
     "key points, and excerpt separated by meaning. Do not merge multiple "
     "semantic fields into title, author, or organization."
 )
+CLASSIFICATION_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "invoice": (
+        "invoice",
+        "invoice number",
+        "amount due",
+        "bill to",
+        "due date",
+        "subtotal",
+        "tax",
+        "balance due",
+    ),
+    "receipt": (
+        "receipt",
+        "transaction",
+        "payment method",
+        "change due",
+        "cash",
+        "card",
+        "qty",
+        "merchant",
+    ),
+    "report": (
+        "report",
+        "executive summary",
+        "methodology",
+        "findings",
+        "recommendations",
+        "conclusion",
+        "analysis",
+    ),
+    "resume": (
+        "resume",
+        "curriculum vitae",
+        "professional summary",
+        "work experience",
+        "professional experience",
+        "education",
+        "skills",
+        "certifications",
+        "projects",
+        "linkedin",
+    ),
+}
+
+
+def _count_keyword_occurrences(
+    normalized_text: str,
+    keyword: str,
+) -> int:
+    if " " in keyword:
+        return normalized_text.count(keyword)
+
+    return len(
+        re.findall(
+            rf"\b{re.escape(keyword)}\b",
+            normalized_text,
+        )
+    )
+
+
+def _score_document_types(
+    document_text: str,
+) -> dict[str, int]:
+    normalized_text = document_text.lower()
+
+    return {
+        document_type: sum(
+            _count_keyword_occurrences(
+                normalized_text,
+                keyword,
+            )
+            for keyword in keywords
+        )
+        for document_type, keywords in CLASSIFICATION_KEYWORDS.items()
+    }
+
+
+def _classify_document_by_keywords(
+    document_text: str,
+) -> DocumentClassification:
+    scores = _score_document_types(document_text)
+    best_document_type = max(
+        scores,
+        key=scores.get,
+    )
+    best_score = scores[best_document_type]
+    competing_scores = sorted(
+        scores.values(),
+        reverse=True,
+    )
+    second_best_score = (
+        competing_scores[1]
+        if len(competing_scores) > 1
+        else 0
+    )
+
+    if best_score < 2 or best_score == second_best_score:
+        return DocumentClassification(
+            document_type="generic",
+            reason=(
+                "Keyword signals do not strongly match invoice, receipt, "
+                "report, or resume patterns."
+            ),
+        )
+
+    return DocumentClassification(
+        document_type=best_document_type,
+        reason=(
+            f"Keyword scoring matched {best_document_type} patterns "
+            f"more strongly than other supported document types."
+        ),
+    )
 
 def _parse_tool_arguments(
     raw_arguments: Any,
@@ -271,6 +384,11 @@ def classify_with_groq(
         raise RuntimeError(
             "classify_document returned an invalid result."
         )
+
+    keyword_classification = (
+        _classify_document_by_keywords(document_text)
+    )
+    classification_result = keyword_classification
 
     document_type = classification_result.document_type
     specialized_tool_name = SPECIALIZED_TOOL_NAMES.get(
