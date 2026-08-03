@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.pdf_data_extractor.agent import (
+    GENERIC_EXTRACTION_HINT,
     INVOICE_EXTRACTION_HINT,
     RECEIPT_EXTRACTION_HINT,
     REPORT_EXTRACTION_HINT,
@@ -14,6 +15,7 @@ from src.pdf_data_extractor.agent import (
 )
 from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
+    GenericDocumentData,
     InvoiceData,
     ReceiptData,
     ReportData,
@@ -212,16 +214,29 @@ def test_supported_report_route_returns_validated_data() -> None:
     assert REPORT_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
-def test_unsupported_types_make_only_one_groq_call() -> None:
+def test_supported_generic_route_returns_validated_data() -> None:
     classify_call = make_tool_call(
         name="classify_document",
         arguments=(
             '{"document_type": "generic", "reason": "Does not match a supported specialized type."}'
         ),
     )
+    extract_call = make_tool_call(
+        name="extract_generic_fields",
+        arguments=(
+            '{"title": "Project Kickoff Notes", '
+            '"document_date": "August 3, 2026", '
+            '"author": "Elias Arellano Campos", '
+            '"organization": "Austin Cohort", '
+            '"summary": "Notes covering the initial kickoff discussion.", '
+            '"key_points": ["Team introductions completed.", "Project timeline was reviewed."], '
+            '"document_text_excerpt": "Kickoff meeting notes for the PDF extractor project."}'
+        ),
+    )
 
     client = make_fake_client(
-        make_response(tool_calls=[classify_call])
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
     )
 
     result = classify_with_groq(
@@ -230,13 +245,25 @@ def test_unsupported_types_make_only_one_groq_call() -> None:
     )
 
     assert result.document_type == "generic"
-    assert result.model_dump()["data"] == {}
-    assert result.warnings == [
-        UNREGISTERED_EXTRACTOR_WARNING.format(
-            document_type="generic"
-        )
-    ]
-    assert client.chat.completions.create.call_count == 1
+    assert isinstance(result.data, GenericDocumentData)
+    assert result.data.title == "Project Kickoff Notes"
+    assert result.data.document_date == "August 3, 2026"
+    assert result.data.author == "Elias Arellano Campos"
+    assert result.data.organization == "Austin Cohort"
+    assert "document_type" not in result.data.model_dump()
+    assert client.chat.completions.create.call_count == 2
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    assert len(second_call.kwargs["tools"]) == 1
+    assert (
+        second_call.kwargs["tools"][0]["function"]["name"]
+        == "extract_generic_fields"
+    )
+    assert second_call.kwargs["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "extract_generic_fields"},
+    }
+    assert GENERIC_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
 def test_supported_receipt_route_returns_validated_data() -> None:

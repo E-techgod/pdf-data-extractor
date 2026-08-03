@@ -53,6 +53,11 @@ REPORT_EXTRACTION_HINT = (
     "separated by meaning. Do not merge multiple sections into one field. "
     "Use findings and recommendations only for list-style report points."
 )
+GENERIC_EXTRACTION_HINT = (
+    "For generic extraction, keep title, date, author, organization, summary, "
+    "key points, and excerpt separated by meaning. Do not merge multiple "
+    "semantic fields into title, author, or organization."
+)
 
 def _parse_tool_arguments(
     raw_arguments: Any,
@@ -294,6 +299,8 @@ def classify_with_groq(
                     if document_type == "receipt"
                     else REPORT_EXTRACTION_HINT
                     if document_type == "report"
+                    else GENERIC_EXTRACTION_HINT
+                    if document_type == "generic"
                     else ""
                 )
             ),
