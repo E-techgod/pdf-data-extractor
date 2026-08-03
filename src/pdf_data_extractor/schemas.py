@@ -42,3 +42,17 @@ class ReceiptData(BaseModel):
     payment_method: str | None = None
     change_due: float | None = Field(default=None, ge=0)
     currency: str = "USD"
+
+
+class ReportData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    author: str | None = None
+    organization: str | None = None
+    report_date: str | None = None
+    executive_summary: str | None = None
+    methodology: str | None = None
+    findings: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    conclusion: str | None = None

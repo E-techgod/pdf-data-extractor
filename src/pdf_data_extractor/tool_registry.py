@@ -4,6 +4,7 @@ from typing import Any
 from src.pdf_data_extractor.tools import (
     classify_document,
     extract_invoice_fields,
+    extract_report_fields,
     extract_receipt_fields,
     extract_resume_fields,
 )
@@ -16,4 +17,5 @@ TOOL_REGISTRY: dict[str, ToolFunction] = {
     "extract_invoice_fields": extract_invoice_fields,
     "extract_resume_fields": extract_resume_fields,
     "extract_receipt_fields": extract_receipt_fields,
+    "extract_report_fields": extract_report_fields,
 }

@@ -2,6 +2,7 @@ from typing import Any, Literal, TypedDict
 
 from src.pdf_data_extractor.schemas import (
     InvoiceData,
+    ReportData,
     ReceiptData,
     ResumeData,
 )
@@ -192,4 +193,39 @@ def extract_receipt_fields(
     return {
         "document_type": "receipt",
         "data": receipt.model_dump(),
+    }
+
+
+def extract_report_fields(
+    title: str | None = None,
+    author: str | None = None,
+    organization: str | None = None,
+    report_date: str | None = None,
+    executive_summary: str | None = None,
+    methodology: str | None = None,
+    findings: list[str] | None = None,
+    recommendations: list[str] | None = None,
+    conclusion: str | None = None,
+) -> dict[str, Any]:
+    """
+    Validate and return structured fields extracted from a report.
+
+    The LLM extracts the values from the document.
+    This Python function validates and normalizes those values.
+    """
+    report = ReportData(
+        title=title,
+        author=author,
+        organization=organization,
+        report_date=report_date,
+        executive_summary=executive_summary,
+        methodology=methodology,
+        findings=findings or [],
+        recommendations=recommendations or [],
+        conclusion=conclusion,
+    )
+
+    return {
+        "document_type": "report",
+        "data": report.model_dump(),
     }

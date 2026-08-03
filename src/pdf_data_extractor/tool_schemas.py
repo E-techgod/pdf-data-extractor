@@ -239,9 +239,78 @@ EXTRACT_RECEIPT_FIELDS_TOOL: dict[str, Any] = {
     },
 }
 
+EXTRACT_REPORT_FIELDS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "extract_report_fields",
+        "description": (
+            "Extract structured report information from a document "
+            "that has been identified as a report. Use only values "
+            "explicitly present in the document. Never infer or invent "
+            "missing details."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": ["string", "null"],
+                    "description": "Report title exactly as shown.",
+                },
+                "author": {
+                    "type": ["string", "null"],
+                    "description": "Author name exactly as shown.",
+                },
+                "organization": {
+                    "type": ["string", "null"],
+                    "description": "Organization associated with the report.",
+                },
+                "report_date": {
+                    "type": ["string", "null"],
+                    "description": "Report date exactly as shown.",
+                },
+                "executive_summary": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Executive summary text explicitly present in the report."
+                    ),
+                },
+                "methodology": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Methodology section text explicitly present in the report."
+                    ),
+                },
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": "Findings explicitly listed in the report.",
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
+                    "description": (
+                        "Recommendations explicitly listed in the report."
+                    ),
+                },
+                "conclusion": {
+                    "type": ["string", "null"],
+                    "description": "Conclusion text explicitly present in the report.",
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOLS: list[dict[str, Any]] = [
     CLASSIFY_DOCUMENT_TOOL,
     EXTRACT_INVOICE_FIELDS_TOOL,
     EXTRACT_RESUME_FIELDS_TOOL,
     EXTRACT_RECEIPT_FIELDS_TOOL,
+    EXTRACT_REPORT_FIELDS_TOOL,
 ]

@@ -8,6 +8,7 @@ from src.pdf_data_extractor.agent import (
 from src.pdf_data_extractor.tools import (
     classify_document,
     extract_invoice_fields,
+    extract_report_fields,
     extract_receipt_fields,
     extract_resume_fields,
 )
@@ -330,3 +331,62 @@ def test_receipt_does_not_share_mutable_lists() -> None:
     first_result["data"]["items"].append("Milk")
 
     assert second_result["data"]["items"] == []
+
+
+def test_extracts_report_fields() -> None:
+    result = extract_report_fields(
+        title="Customer Retention Analysis",
+        author="Elias Arellano Campos",
+        organization="American Smart Business LLC",
+        report_date="August 1, 2026",
+        executive_summary="Retention improved during the last quarter.",
+        methodology="We analyzed quarterly transaction and support data.",
+        findings=[
+            "Customer retention improved by 12%.",
+            "Repeat purchases increased in July.",
+        ],
+        recommendations=[
+            "Continue monitoring retention monthly.",
+        ],
+        conclusion="The retention strategy is producing measurable gains.",
+    )
+
+    assert result["document_type"] == "report"
+
+    report = result["data"]
+
+    assert report["title"] == "Customer Retention Analysis"
+    assert report["author"] == "Elias Arellano Campos"
+    assert len(report["findings"]) == 2
+    assert len(report["recommendations"]) == 1
+    assert report["conclusion"] == (
+        "The retention strategy is producing measurable gains."
+    )
+
+
+def test_report_allows_missing_fields() -> None:
+    result = extract_report_fields(
+        title="Customer Retention Analysis",
+        findings=["Retention improved by 12%."],
+    )
+
+    report = result["data"]
+
+    assert report["title"] == "Customer Retention Analysis"
+    assert report["author"] is None
+    assert report["findings"] == ["Retention improved by 12%."]
+    assert report["recommendations"] == []
+
+
+def test_report_does_not_share_mutable_lists() -> None:
+    first_result = extract_report_fields(
+        title="Report One",
+    )
+
+    second_result = extract_report_fields(
+        title="Report Two",
+    )
+
+    first_result["data"]["findings"].append("Finding one")
+
+    assert second_result["data"]["findings"] == []

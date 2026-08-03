@@ -423,6 +423,54 @@ def test_supports_receipt_extraction_tool_round() -> None:
     assert '"document_type": "receipt"' in tool_messages[1]["content"]
 
 
+def test_supports_report_extraction_tool_round() -> None:
+    classify_call = make_tool_call(
+        arguments="{}",
+        call_id="call_classify",
+    )
+    extract_call = make_tool_call(
+        name="extract_report_fields",
+        arguments=(
+            '{"title": "Customer Retention Analysis", '
+            '"author": "Elias Arellano Campos", '
+            '"findings": ["Retention improved by 12%."], '
+            '"recommendations": ["Continue monitoring monthly."], '
+            '"conclusion": "The strategy is working."}'
+        ),
+        call_id="call_extract_report",
+    )
+
+    client = make_fake_client(
+        make_response(tool_calls=[classify_call]),
+        make_response(tool_calls=[extract_call]),
+        make_response(
+            content=(
+                "The document is a report. "
+                "Customer Retention Analysis concludes the strategy is working."
+            )
+        ),
+    )
+
+    result = classify_with_groq(
+        "Executive Summary. Methodology. Findings. Recommendations. Conclusion.",
+        client=client,
+    )
+
+    assert "Customer Retention Analysis" in result
+
+    third_call = client.chat.completions.create.call_args_list[2]
+    tool_messages = [
+        message
+        for message in third_call.kwargs["messages"]
+        if isinstance(message, dict)
+        and message.get("role") == "tool"
+    ]
+
+    assert len(tool_messages) == 2
+    assert tool_messages[1]["name"] == "extract_report_fields"
+    assert '"document_type": "report"' in tool_messages[1]["content"]
+
+
 def test_raises_when_tool_round_limit_is_exceeded() -> None:
     tool_call = make_tool_call(arguments="{}")
     responses = [
