@@ -39,21 +39,57 @@ _EXACT_STRING_FIELDS = {
 }
 
 
+def _parse_path(path: str) -> list[list[tuple[str, str | int]]]:
+    if not path:
+        raise ValueError("path must be a non-empty string")
+
+    segments: list[list[tuple[str, str | int]]] = []
+
+    for segment in path.split("."):
+        if not segment:
+            raise ValueError(f"empty path segment in {path!r}")
+
+        tokens: list[tuple[str, str | int]] = []
+        position = 0
+
+        for match in _PATH_SEGMENT_PATTERN.finditer(segment):
+            if match.start() != position:
+                raise ValueError(
+                    f"malformed path segment {segment!r} in {path!r}"
+                )
+
+            name_token, index_token = match.groups()
+
+            if name_token:
+                tokens.append(("name", name_token))
+            else:
+                tokens.append(("index", int(index_token)))
+
+            position = match.end()
+
+        if position != len(segment):
+            raise ValueError(
+                f"malformed path segment {segment!r} in {path!r}"
+            )
+
+        segments.append(tokens)
+
+    return segments
+
+
 def get_nested_value(
     data: dict[str, Any],
     path: str,
 ) -> Any:
     current: Any = data
 
-    for segment in path.split("."):
-        for name_token, index_token in _PATH_SEGMENT_PATTERN.findall(
-            segment
-        ):
-            if name_token:
+    for segment_tokens in _parse_path(path):
+        for kind, token in segment_tokens:
+            if kind == "name":
                 if not isinstance(current, dict):
                     return None
 
-                current = current.get(name_token)
+                current = current.get(token)
             else:
                 if (
                     not isinstance(current, list)
@@ -61,12 +97,10 @@ def get_nested_value(
                 ):
                     return None
 
-                index = int(index_token)
-
-                if index >= len(current):
+                if token >= len(current):
                     return None
 
-                current = current[index]
+                current = current[token]
 
             if current is None:
                 return None
@@ -91,6 +125,9 @@ def calculate_completeness(
     data: dict[str, Any],
     required_fields: list[str],
 ) -> tuple[int, int, float]:
+    if required_fields is None:
+        raise TypeError("required_fields must not be None")
+
     if not required_fields:
         return 0, 0, 1.0
 
@@ -142,7 +179,7 @@ def values_match(
         try:
             return abs(float(actual) - float(expected)) <= float_tolerance
         except (TypeError, ValueError):
-            return False
+            return False 
 
     if isinstance(actual, str) and isinstance(expected, str):
         if _is_phone_path(field_path):
