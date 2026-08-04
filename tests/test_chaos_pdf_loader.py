@@ -59,19 +59,19 @@ def test_page_extract_text_exception_propagates_unwrapped(
     pdf_file.touch()
 
     broken_page = Mock()
-    broken_page.extract_text.side_effect = RuntimeError(
-        "corrupt content stream"
-    )
+    broken_page.extract_text.side_effect = RuntimeError("corrupt content stream")
 
     mock_reader = Mock()
     mock_reader.pages = [broken_page]
 
-    with patch(
-        "src.pdf_data_extractor.pdf_loader.PdfReader",
-        return_value=mock_reader,
+    with (
+        patch(
+            "src.pdf_data_extractor.pdf_loader.PdfReader",
+            return_value=mock_reader,
+        ),
+        pytest.raises(RuntimeError, match="corrupt content stream"),
     ):
-        with pytest.raises(RuntimeError, match="corrupt content stream"):
-            extract_pdf_text(pdf_file)
+        extract_pdf_text(pdf_file)
 
 
 def test_whitespace_only_page_text_is_treated_as_no_text(
@@ -95,12 +95,14 @@ def test_whitespace_only_page_text_is_treated_as_no_text(
     mock_reader = Mock()
     mock_reader.pages = [blank_page]
 
-    with patch(
-        "src.pdf_data_extractor.pdf_loader.PdfReader",
-        return_value=mock_reader,
+    with (
+        patch(
+            "src.pdf_data_extractor.pdf_loader.PdfReader",
+            return_value=mock_reader,
+        ),
+        pytest.raises(ValueError, match="No text could be extracted"),
     ):
-        with pytest.raises(ValueError, match="No text could be extracted"):
-            extract_pdf_text(pdf_file)
+        extract_pdf_text(pdf_file)
 
 
 def test_uppercase_pdf_extension_with_lowercase_case_sensitive_disk_is_accepted(

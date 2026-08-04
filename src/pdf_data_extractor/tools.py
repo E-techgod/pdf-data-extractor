@@ -1,16 +1,16 @@
 from typing import Any
 
 from src.pdf_data_extractor.schemas import (
-    DocumentExtractionResult,
     DocumentClassification,
+    DocumentExtractionResult,
     GenericDocumentData,
     InvoiceData,
-    ReportData,
     ReceiptData,
     ReceiptItem,
+    ReportData,
+    ResumeData,
     ResumeEducation,
     ResumeExperience,
-    ResumeData,
 )
 
 
@@ -30,6 +30,7 @@ def classify_document(
     )
 
     return classification
+
 
 def extract_invoice_fields(
     invoice_number: str | None = None,
@@ -65,6 +66,7 @@ def extract_invoice_fields(
         data=invoice,
     )
 
+
 def extract_resume_fields(
     full_name: str | None = None,
     email: str | None = None,
@@ -82,25 +84,26 @@ def extract_resume_fields(
     This function validates and normalizes the result.
     """
     normalized_education = [
-        ResumeEducation(school=item)
-        if isinstance(item, str)
-        else ResumeEducation.model_validate(item)
+        (
+            ResumeEducation(school=item)
+            if isinstance(item, str)
+            else ResumeEducation.model_validate(item)
+        )
         for item in (education or [])
     ]
     normalized_experience = [
-        ResumeExperience(company=item)
-        if isinstance(item, str)
-        else ResumeExperience.model_validate(
-            {
-                "company": item.get("company"),
-                "title": item.get("title"),
-                "dates": item.get("dates"),
-                "location": item.get("location"),
-                "responsibilities": item.get(
-                    "responsibilities"
-                )
-                or [],
-            }
+        (
+            ResumeExperience(company=item)
+            if isinstance(item, str)
+            else ResumeExperience.model_validate(
+                {
+                    "company": item.get("company"),
+                    "title": item.get("title"),
+                    "dates": item.get("dates"),
+                    "location": item.get("location"),
+                    "responsibilities": item.get("responsibilities") or [],
+                }
+            )
         )
         for item in (experience or [])
     ]
@@ -142,17 +145,19 @@ def extract_receipt_fields(
     This Python function validates and normalizes those values.
     """
     normalized_items = [
-        ReceiptItem(name=item)
-        if isinstance(item, str)
-        else ReceiptItem.model_validate(
-            {
-                "name": item.get("name"),
-                "quantity": item.get(
-                    "quantity",
-                    item.get("qty"),
-                ),
-                "amount": item.get("amount"),
-            }
+        (
+            ReceiptItem(name=item)
+            if isinstance(item, str)
+            else ReceiptItem.model_validate(
+                {
+                    "name": item.get("name"),
+                    "quantity": item.get(
+                        "quantity",
+                        item.get("qty"),
+                    ),
+                    "amount": item.get("amount"),
+                }
+            )
         )
         for item in (items or [])
     ]

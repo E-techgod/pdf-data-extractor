@@ -10,11 +10,13 @@ DocumentType = Literal[
     "generic",
 ]
 
+
 class DocumentClassification(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     document_type: DocumentType
     reason: str = Field(min_length=1)
+
 
 class InvoiceData(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -111,6 +113,7 @@ class GenericDocumentData(BaseModel):
     summary: str | None = None
     key_points: list[str] = Field(default_factory=list)
     document_text_excerpt: str | None = None
+
 
 class EmptyExtractionData(BaseModel):
     model_config = ConfigDict(extra="forbid")

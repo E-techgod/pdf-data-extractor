@@ -1,7 +1,8 @@
-import pytest
-
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import Mock, patch
+
+import pytest
 
 from src.pdf_data_extractor.agent import (
     GENERIC_EXTRACTION_HINT,
@@ -9,11 +10,10 @@ from src.pdf_data_extractor.agent import (
     RECEIPT_EXTRACTION_HINT,
     REPORT_EXTRACTION_HINT,
     RESUME_EXTRACTION_HINT,
-    UNREGISTERED_EXTRACTOR_WARNING,
     _classify_document_by_keywords,
+    analyze_document_with_groq,
     classify_pdf_with_groq,
     classify_with_groq,
-    analyze_document_with_groq
 )
 from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
@@ -76,9 +76,7 @@ def make_fake_client(
     *responses: SimpleNamespace,
 ) -> Mock:
     client = Mock()
-    client.chat.completions.create.side_effect = list(
-        responses
-    )
+    client.chat.completions.create.side_effect = list(responses)
     return client
 
 
@@ -115,9 +113,7 @@ def test_uses_required_classifier_only_on_first_call() -> None:
     )
 
     first_call = client.chat.completions.create.call_args_list[0]
-    assert first_call.kwargs["tools"] == [
-        CLASSIFY_DOCUMENT_TOOL
-    ]
+    assert first_call.kwargs["tools"] == [CLASSIFY_DOCUMENT_TOOL]
     assert first_call.kwargs["tool_choice"] == {
         "type": "function",
         "function": {"name": "classify_document"},
@@ -134,9 +130,7 @@ def test_routes_to_matching_specialized_extractor_only() -> None:
     )
     extract_call = make_tool_call(
         name="extract_resume_fields",
-        arguments=(
-            '{"full_name": "Elias Arellano Campos", "skills": ["Python"]}'
-        ),
+        arguments=('{"full_name": "Elias Arellano Campos", "skills": ["Python"]}'),
         call_id="call_extract",
     )
 
@@ -160,10 +154,7 @@ def test_routes_to_matching_specialized_extractor_only() -> None:
 
     second_call = client.chat.completions.create.call_args_list[1]
     assert len(second_call.kwargs["tools"]) == 1
-    assert (
-        second_call.kwargs["tools"][0]["function"]["name"]
-        == "extract_resume_fields"
-    )
+    assert second_call.kwargs["tools"][0]["function"]["name"] == "extract_resume_fields"
     assert second_call.kwargs["tool_choice"] == {
         "type": "function",
         "function": {"name": "extract_resume_fields"},
@@ -208,18 +199,13 @@ def test_supported_report_route_returns_validated_data() -> None:
     assert isinstance(result.data, ReportData)
     assert result.data.title == "Customer Retention Analysis"
     assert result.data.author == "Elias Arellano Campos"
-    assert result.data.findings == [
-        "Customer retention improved by 12%."
-    ]
+    assert result.data.findings == ["Customer retention improved by 12%."]
     assert "document_type" not in result.data.model_dump()
     assert client.chat.completions.create.call_count == 2
 
     second_call = client.chat.completions.create.call_args_list[1]
     assert len(second_call.kwargs["tools"]) == 1
-    assert (
-        second_call.kwargs["tools"][0]["function"]["name"]
-        == "extract_report_fields"
-    )
+    assert second_call.kwargs["tools"][0]["function"]["name"] == "extract_report_fields"
     assert second_call.kwargs["tool_choice"] == {
         "type": "function",
         "function": {"name": "extract_report_fields"},
@@ -269,8 +255,7 @@ def test_supported_generic_route_returns_validated_data() -> None:
     second_call = client.chat.completions.create.call_args_list[1]
     assert len(second_call.kwargs["tools"]) == 1
     assert (
-        second_call.kwargs["tools"][0]["function"]["name"]
-        == "extract_generic_fields"
+        second_call.kwargs["tools"][0]["function"]["name"] == "extract_generic_fields"
     )
     assert second_call.kwargs["tool_choice"] == {
         "type": "function",
@@ -281,10 +266,8 @@ def test_supported_generic_route_returns_validated_data() -> None:
 
 def test_keyword_classifier_marks_generic_roadmap_as_generic() -> None:
     result = _classify_document_by_keywords(
-        (
-            "AI Engineer Roadmap. Students with no prior coding experience. "
-            "Build something every single week. Portfolio projects on GitHub."
-        )
+        "AI Engineer Roadmap. Students with no prior coding experience. "
+        "Build something every single week. Portfolio projects on GitHub."
     )
 
     assert result.document_type == "generic"
@@ -325,8 +308,7 @@ def test_keyword_classifier_overrides_resume_drift_for_generic_document() -> Non
 
     second_call = client.chat.completions.create.call_args_list[1]
     assert (
-        second_call.kwargs["tools"][0]["function"]["name"]
-        == "extract_generic_fields"
+        second_call.kwargs["tools"][0]["function"]["name"] == "extract_generic_fields"
     )
 
 
@@ -373,8 +355,7 @@ def test_supported_receipt_route_returns_validated_data() -> None:
     second_call = client.chat.completions.create.call_args_list[1]
     assert len(second_call.kwargs["tools"]) == 1
     assert (
-        second_call.kwargs["tools"][0]["function"]["name"]
-        == "extract_receipt_fields"
+        second_call.kwargs["tools"][0]["function"]["name"] == "extract_receipt_fields"
     )
     assert second_call.kwargs["tool_choice"] == {
         "type": "function",
@@ -383,7 +364,9 @@ def test_supported_receipt_route_returns_validated_data() -> None:
     assert RECEIPT_EXTRACTION_HINT in second_call.kwargs["messages"][0]["content"]
 
 
-def test_ignores_assistant_prose_and_uses_validated_classification_tool_result() -> None:
+def test_ignores_assistant_prose_and_uses_validated_classification_tool_result() -> (
+    None
+):
     classify_call = make_tool_call(
         name="classify_document",
         arguments=(
@@ -497,9 +480,7 @@ def test_rejects_unknown_tool() -> None:
         name="delete_everything",
         arguments="{}",
     )
-    client = make_fake_client(
-        make_response(tool_calls=[tool_call])
-    )
+    client = make_fake_client(make_response(tool_calls=[tool_call]))
 
     with pytest.raises(
         RuntimeError,
@@ -516,14 +497,9 @@ def test_rejects_invalid_json_arguments() -> None:
         name="classify_document",
         arguments="{invalid JSON}",
     )
-    client = make_fake_client(
-        make_response(tool_calls=[tool_call])
-    )
+    client = make_fake_client(make_response(tool_calls=[tool_call]))
 
-    with pytest.raises(
-        ValueError,
-        match="Invalid tool arguments",
-    ):
+    with pytest.raises(ValueError, match="Invalid tool arguments"):
         classify_with_groq(
             "Test document",
             client=client,
@@ -535,14 +511,9 @@ def test_rejects_non_object_tool_arguments() -> None:
         name="classify_document",
         arguments='"not an object"',
     )
-    client = make_fake_client(
-        make_response(tool_calls=[tool_call])
-    )
+    client = make_fake_client(make_response(tool_calls=[tool_call]))
 
-    with pytest.raises(
-        ValueError,
-        match="Invalid tool arguments",
-    ):
+    with pytest.raises(TypeError, match="Invalid tool arguments"):
         classify_with_groq(
             "Test document",
             client=client,
@@ -554,9 +525,7 @@ def test_rejects_invalid_classification_payload() -> None:
         name="classify_document",
         arguments='{"document_type": "memo", "reason": "test"}',
     )
-    client = make_fake_client(
-        make_response(tool_calls=[tool_call])
-    )
+    client = make_fake_client(make_response(tool_calls=[tool_call]))
 
     with pytest.raises(ValueError):
         classify_with_groq(
@@ -565,9 +534,7 @@ def test_rejects_invalid_classification_payload() -> None:
         )
 
 
-@patch(
-    "src.pdf_data_extractor.agent.extract_pdf_text"
-)
+@patch("src.pdf_data_extractor.agent.extract_pdf_text")
 def test_classifies_text_extracted_from_pdf(
     mock_extract_pdf_text: Mock,
 ) -> None:
@@ -608,12 +575,12 @@ def test_classifies_text_extracted_from_pdf(
         ),
     )
     assert "document_type" not in result.data.model_dump()
-    mock_extract_pdf_text.assert_called_once_with(
-        "data/invoice.pdf"
-    )
+    mock_extract_pdf_text.assert_called_once_with("data/invoice.pdf")
 
 
-def test_supported_resume_route_returns_populated_data_without_nested_document_type() -> None:
+def test_supported_resume_route_returns_populated_data_without_nested_document_type() -> (
+    None
+):
     classify_call = make_tool_call(
         name="classify_document",
         arguments=(
@@ -658,12 +625,10 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
 
     class FakeAssistantMessage:
         content = None
-        tool_calls = [FakeToolCall()]
-        annotations = [{"unsupported": True}]
+        tool_calls: ClassVar[list[FakeToolCall]] = [FakeToolCall()]
+        annotations: ClassVar[list[dict[str, bool]]] = [{"unsupported": True}]
 
-    result = _build_assistant_tool_message(
-        FakeAssistantMessage()
-    )
+    result = _build_assistant_tool_message(FakeAssistantMessage())
 
     assert result == {
         "role": "assistant",
@@ -674,29 +639,23 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
                 "type": "function",
                 "function": {
                     "name": "classify_document",
-                    "arguments": (
-                        '{"document_type":"invoice","reason":"sample"}'
-                    ),
+                    "arguments": ('{"document_type":"invoice","reason":"sample"}'),
                 },
             }
         ],
     }
 
-def test_rejects_non_object_tool_arguments() -> None:
+
+def test_rejects_array_tool_arguments() -> None:
     tool_call = make_tool_call(
         name="classify_document",
         arguments='["invoice", "reason"]',
     )
 
     client = Mock()
-    client.chat.completions.create.return_value = (
-        make_first_response(tool_call)
-    )
+    client.chat.completions.create.return_value = make_first_response(tool_call)
 
-    with pytest.raises(
-        ValueError,
-        match="Invalid tool arguments",
-    ):
+    with pytest.raises(TypeError, match="Invalid tool arguments"):
         analyze_document_with_groq(
             "Invoice Number: INV-001",
             client=client,
@@ -707,17 +666,12 @@ def test_rejects_invalid_classification_type() -> None:
     tool_call = make_tool_call(
         name="classify_document",
         arguments=(
-            "{"
-            '"document_type": "contract", '
-            '"reason": "It looks like a contract."'
-            "}"
+            '{"document_type": "contract", "reason": "It looks like a contract."}'
         ),
     )
 
     client = Mock()
-    client.chat.completions.create.return_value = (
-        make_first_response(tool_call)
-    )
+    client.chat.completions.create.return_value = make_first_response(tool_call)
 
     with pytest.raises(
         ValueError,
@@ -733,21 +687,13 @@ def test_rejects_negative_invoice_total() -> None:
     classification_call = make_tool_call(
         name="classify_document",
         arguments=(
-            "{"
-            '"document_type": "invoice", '
-            '"reason": "Contains invoice fields."'
-            "}"
+            '{"document_type": "invoice", "reason": "Contains invoice fields."}'
         ),
     )
 
     extraction_call = make_tool_call(
         name="extract_invoice_fields",
-        arguments=(
-            "{"
-            '"invoice_number": "INV-001", '
-            '"total": -100.0'
-            "}"
-        ),
+        arguments=('{"invoice_number": "INV-001", "total": -100.0}'),
     )
 
     client = Mock()
@@ -764,6 +710,7 @@ def test_rejects_negative_invoice_total() -> None:
             "Invoice Number: INV-001",
             client=client,
         )
+
 
 def test_report_without_extractor_raises_when_tool_call_is_missing() -> None:
     classification_call = make_tool_call(
@@ -798,10 +745,7 @@ def test_nested_data_does_not_include_document_type() -> None:
     classification_call = make_tool_call(
         name="classify_document",
         arguments=(
-            "{"
-            '"document_type": "invoice", '
-            '"reason": "Contains billing information."'
-            "}"
+            '{"document_type": "invoice", "reason": "Contains billing information."}'
         ),
     )
 
@@ -835,21 +779,13 @@ def test_invoice_route_uses_only_invoice_extractor() -> None:
     classification_call = make_tool_call(
         name="classify_document",
         arguments=(
-            "{"
-            '"document_type": "invoice", '
-            '"reason": "Contains an invoice number."'
-            "}"
+            '{"document_type": "invoice", "reason": "Contains an invoice number."}'
         ),
     )
 
     extraction_call = make_tool_call(
         name="extract_invoice_fields",
-        arguments=(
-            "{"
-            '"invoice_number": "INV-001", '
-            '"total": 100.0'
-            "}"
-        ),
+        arguments=('{"invoice_number": "INV-001", "total": 100.0}'),
     )
 
     client = Mock()
@@ -863,14 +799,9 @@ def test_invoice_route_uses_only_invoice_extractor() -> None:
         client=client,
     )
 
-    second_request = (
-        client.chat.completions.create.call_args_list[1]
-    )
+    second_request = client.chat.completions.create.call_args_list[1]
 
     exposed_tools = second_request.kwargs["tools"]
 
     assert len(exposed_tools) == 1
-    assert (
-        exposed_tools[0]["function"]["name"]
-        == "extract_invoice_fields"
-    )
+    assert exposed_tools[0]["function"]["name"] == "extract_invoice_fields"

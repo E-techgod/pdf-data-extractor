@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 from pydantic import ValidationError
 
@@ -7,12 +9,12 @@ from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
     GenericDocumentData,
     InvoiceData,
-    ReceiptItem,
     ReceiptData,
+    ReceiptItem,
     ReportData,
+    ResumeData,
     ResumeEducation,
     ResumeExperience,
-    ResumeData,
 )
 from src.pdf_data_extractor.tool_schemas import (
     EXTRACT_INVOICE_FIELDS_TOOL,
@@ -22,8 +24,8 @@ from src.pdf_data_extractor.tools import (
     classify_document,
     extract_generic_fields,
     extract_invoice_fields,
-    extract_report_fields,
     extract_receipt_fields,
+    extract_report_fields,
     extract_resume_fields,
 )
 
@@ -104,12 +106,10 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
 
     class FakeAssistantMessage:
         content = None
-        tool_calls = [FakeToolCall()]
-        annotations = [{"unsupported": True}]
+        tool_calls: ClassVar[list[FakeToolCall]] = [FakeToolCall()]
+        annotations: ClassVar[list[dict[str, bool]]] = [{"unsupported": True}]
 
-    result = _build_assistant_tool_message(
-        FakeAssistantMessage()
-    )
+    result = _build_assistant_tool_message(FakeAssistantMessage())
 
     assert result == {
         "role": "assistant",
@@ -120,9 +120,7 @@ def test_build_assistant_tool_message_omits_sdk_only_fields() -> None:
                 "type": "function",
                 "function": {
                     "name": "classify_document",
-                    "arguments": (
-                        '{"document_type":"invoice","reason":"sample"}'
-                    ),
+                    "arguments": ('{"document_type":"invoice","reason":"sample"}'),
                 },
             }
         ],
@@ -212,9 +210,7 @@ def test_extracts_resume_fields() -> None:
                 "company": "American Smart Business LLC",
                 "title": "AI Systems Implementation Associate",
                 "dates": "2026",
-                "responsibilities": [
-                    "Built AI workflows."
-                ],
+                "responsibilities": ["Built AI workflows."],
             }
         ],
     )
@@ -286,9 +282,7 @@ def test_resume_keeps_experience_fields_separate() -> None:
                 "title": "AI Systems Implementation Associate",
                 "dates": "August 2025 - July 2026",
                 "location": "Houston, Texas",
-                "responsibilities": [
-                    "Built AI workflows."
-                ],
+                "responsibilities": ["Built AI workflows."],
             }
         ]
     )
@@ -399,9 +393,7 @@ def test_receipt_does_not_share_mutable_lists() -> None:
     assert isinstance(first_result.data, ReceiptData)
     assert isinstance(second_result.data, ReceiptData)
 
-    first_result.data.items.append(
-        ReceiptItem(name="Milk")
-    )
+    first_result.data.items.append(ReceiptItem(name="Milk"))
 
     assert second_result.data.items == []
 
@@ -519,9 +511,7 @@ def test_unsupported_result_serializes_empty_data_object() -> None:
     result = DocumentExtractionResult(
         document_type="report",
         data={},
-        warnings=[
-            "No specialized extractor is registered for document_type 'report'."
-        ],
+        warnings=["No specialized extractor is registered for document_type 'report'."],
     )
 
     assert result.model_dump()["data"] == {}
@@ -529,8 +519,12 @@ def test_unsupported_result_serializes_empty_data_object() -> None:
 
 def test_resume_tool_schema_forbids_field_collapsing() -> None:
     description = EXTRACT_RESUME_FIELDS_TOOL["function"]["description"]
-    education_description = EXTRACT_RESUME_FIELDS_TOOL["function"]["parameters"]["properties"]["education"]["items"]["anyOf"][1]["properties"]["school"]["description"]
-    experience_description = EXTRACT_RESUME_FIELDS_TOOL["function"]["parameters"]["properties"]["experience"]["items"]["anyOf"][1]["properties"]["company"]["description"]
+    education_description = EXTRACT_RESUME_FIELDS_TOOL["function"]["parameters"][
+        "properties"
+    ]["education"]["items"]["anyOf"][1]["properties"]["school"]["description"]
+    experience_description = EXTRACT_RESUME_FIELDS_TOOL["function"]["parameters"][
+        "properties"
+    ]["experience"]["items"]["anyOf"][1]["properties"]["company"]["description"]
 
     assert "Do not concatenate multiple semantic fields" in description
     assert "Do not include degree" in education_description
@@ -539,8 +533,12 @@ def test_resume_tool_schema_forbids_field_collapsing() -> None:
 
 def test_invoice_tool_schema_forbids_field_collapsing() -> None:
     description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["description"]
-    vendor_description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["parameters"]["properties"]["vendor"]["description"]
-    customer_description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["parameters"]["properties"]["customer"]["description"]
+    vendor_description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["parameters"][
+        "properties"
+    ]["vendor"]["description"]
+    customer_description = EXTRACT_INVOICE_FIELDS_TOOL["function"]["parameters"][
+        "properties"
+    ]["customer"]["description"]
 
     assert "Do not concatenate multiple semantic fields" in description
     assert "Do not include customer names" in vendor_description

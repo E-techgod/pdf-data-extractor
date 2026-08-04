@@ -22,7 +22,6 @@ from src.pdf_data_extractor.evaluation import (
 )
 from src.pdf_data_extractor.schemas import DocumentExtractionResult
 
-
 # ---------------------------------------------------------------------------
 # Boundary & Extreme Values
 # ---------------------------------------------------------------------------
@@ -82,7 +81,7 @@ def test_empty_tuple_and_set_incorrectly_count_as_present() -> None:
     # `set()` dedup step), a genuinely empty field is scored as present.
     data = {"skills": (), "tags": set()}
 
-    found, total, score = calculate_completeness(data, ["skills", "tags"])
+    found, _total, score = calculate_completeness(data, ["skills", "tags"])
 
     # Documents the bug: an empty tuple/set is NOT treated like an empty
     # list/dict, even though it is equally "no data."
@@ -101,7 +100,7 @@ def test_boolean_false_and_zero_count_as_present_field() -> None:
     # refactor doesn't silently change scoring semantics.
     data = {"has_discount": False, "years_experience": 0}
 
-    found, total, score = calculate_completeness(
+    found, _total, score = calculate_completeness(
         data, ["has_discount", "years_experience"]
     )
 
@@ -143,7 +142,7 @@ def test_calculate_completeness_iterates_characters_when_given_a_bare_string() -
     # of a one-element list (`"vendor"` instead of `["vendor"]`) doesn't
     # raise -- it silently iterates *characters* of the string as if each
     # were its own required field path.
-    found, total, score = calculate_completeness({"v": "x"}, "vendor")
+    found, total, _score = calculate_completeness({"v": "x"}, "vendor")
 
     # "vendor" has 6 characters; only "v" happens to exist as a top-level
     # key in `data`, so exactly one of six bogus "fields" is found.
@@ -223,7 +222,9 @@ def test_evaluate_result_does_not_mutate_input_collections() -> None:
     assert required_fields == required_fields_copy
 
 
-def test_duplicate_required_fields_inflate_completeness_denominator_and_numerator() -> None:
+def test_duplicate_required_fields_inflate_completeness_denominator_and_numerator() -> (
+    None
+):
     # Risk: calculate_completeness treats required_fields as a flat
     # sequence, not a set, and never deduplicates. If an eval dataset
     # accidentally lists the same required field twice (e.g. a bad CSV

@@ -11,7 +11,6 @@ from src.pdf_data_extractor.evaluation import (
     values_match,
 )
 
-
 DATASET_PATH = Path("evals/golden_dataset.json")
 CASE_IDS: set[str] | None = None
 
@@ -36,9 +35,7 @@ def _selected_cases(
     if not CASE_IDS:
         return dataset
 
-    return [
-        case for case in dataset if case["id"] in CASE_IDS
-    ]
+    return [case for case in dataset if case["id"] in CASE_IDS]
 
 
 def main() -> None:
@@ -48,9 +45,7 @@ def main() -> None:
     for case in dataset:
         print(f"\nRunning: {case['id']}")
 
-        result = analyze_document_with_groq(
-            case["text"]
-        )
+        result = analyze_document_with_groq(case["text"])
         result_data = _coerce_result_data(result.data)
 
         evaluation = evaluate_result(
@@ -69,10 +64,7 @@ def main() -> None:
             f"(expected {evaluation.expected_type})"
         )
 
-        print(
-            f"Classification correct: "
-            f"{evaluation.classification_correct}"
-        )
+        print(f"Classification correct: {evaluation.classification_correct}")
 
         print(
             f"Completeness: "
@@ -107,9 +99,7 @@ def main() -> None:
         )
 
         mismatches_found = False
-        for field_name, expected_value in case[
-            "expected_data"
-        ].items():
+        for field_name, expected_value in case["expected_data"].items():
             actual_value = get_nested_value(
                 result_data,
                 field_name,
@@ -130,43 +120,22 @@ def main() -> None:
         if not mismatches_found:
             print("\nNo field mismatches.")
 
-    classification_accuracy = (
-        sum(
-            result.classification_correct
-            for result in case_results
-        )
-        / len(case_results)
-    )
+    classification_accuracy = sum(
+        result.classification_correct for result in case_results
+    ) / len(case_results)
 
-    average_completeness = (
-        sum(
-            result.completeness_score
-            for result in case_results
-        )
-        / len(case_results)
-    )
+    average_completeness = sum(
+        result.completeness_score for result in case_results
+    ) / len(case_results)
 
-    average_field_accuracy = (
-        sum(
-            result.field_accuracy
-            for result in case_results
-        )
-        / len(case_results)
-    )
+    average_field_accuracy = sum(
+        result.field_accuracy for result in case_results
+    ) / len(case_results)
 
     print("\n=== Evaluation Summary ===")
-    print(
-        f"Classification accuracy: "
-        f"{classification_accuracy:.1%}"
-    )
-    print(
-        f"Average completeness: "
-        f"{average_completeness:.1%}"
-    )
-    print(
-        f"Average field accuracy: "
-        f"{average_field_accuracy:.1%}"
-    )
+    print(f"Classification accuracy: {classification_accuracy:.1%}")
+    print(f"Average completeness: {average_completeness:.1%}")
+    print(f"Average field accuracy: {average_field_accuracy:.1%}")
 
 
 if __name__ == "__main__":

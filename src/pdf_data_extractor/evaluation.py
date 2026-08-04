@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
@@ -21,9 +21,7 @@ class EvaluationCaseResult:
     field_accuracy: float
 
 
-_PATH_SEGMENT_PATTERN = re.compile(
-    r"([^[.\]]+)|\[(\d+)\]"
-)
+_PATH_SEGMENT_PATTERN = re.compile(r"([^[.\]]+)|\[(\d+)\]")
 _EXACT_STRING_FIELDS = {
     "invoice_number",
     "receipt_number",
@@ -54,9 +52,7 @@ def _parse_path(path: str) -> list[list[tuple[str, str | int]]]:
 
         for match in _PATH_SEGMENT_PATTERN.finditer(segment):
             if match.start() != position:
-                raise ValueError(
-                    f"malformed path segment {segment!r} in {path!r}"
-                )
+                raise ValueError(f"malformed path segment {segment!r} in {path!r}")
 
             name_token, index_token = match.groups()
 
@@ -68,9 +64,7 @@ def _parse_path(path: str) -> list[list[tuple[str, str | int]]]:
             position = match.end()
 
         if position != len(segment):
-            raise ValueError(
-                f"malformed path segment {segment!r} in {path!r}"
-            )
+            raise ValueError(f"malformed path segment {segment!r} in {path!r}")
 
         segments.append(tokens)
 
@@ -91,10 +85,7 @@ def get_nested_value(
 
                 current = current.get(token)
             else:
-                if (
-                    not isinstance(current, list)
-                    or current is None
-                ):
+                if not isinstance(current, list) or current is None:
                     return None
 
                 if token >= len(current):
@@ -155,9 +146,7 @@ def _normalize_whitespace(value: str) -> str:
 
 
 def _normalize_phone(value: str) -> str:
-    return "".join(
-        character for character in value if character.isdigit()
-    )
+    return "".join(character for character in value if character.isdigit())
 
 
 def _is_phone_path(path: str) -> bool:
@@ -178,14 +167,12 @@ def values_match(
     if isinstance(actual, float) or isinstance(expected, float):
         try:
             return abs(float(actual) - float(expected)) <= float_tolerance
-        except (TypeError, ValueError):
-            return False 
+        except TypeError, ValueError:
+            return False
 
     if isinstance(actual, str) and isinstance(expected, str):
         if _is_phone_path(field_path):
-            return _normalize_phone(actual) == _normalize_phone(
-                expected
-            )
+            return _normalize_phone(actual) == _normalize_phone(expected)
 
         normalized_actual = _normalize_whitespace(actual)
         normalized_expected = _normalize_whitespace(expected)
@@ -193,10 +180,7 @@ def values_match(
         if _is_exact_string_path(field_path):
             return normalized_actual == normalized_expected
 
-        return (
-            normalized_actual.casefold()
-            == normalized_expected.casefold()
-        )
+        return normalized_actual.casefold() == normalized_expected.casefold()
 
     return actual == expected
 
@@ -262,9 +246,7 @@ def evaluate_result(
         case_id=case_id,
         expected_type=expected_type,
         predicted_type=result.document_type,
-        classification_correct=(
-            result.document_type == expected_type
-        ),
+        classification_correct=(result.document_type == expected_type),
         required_fields_found=found,
         required_fields_total=required_total,
         completeness_score=completeness,

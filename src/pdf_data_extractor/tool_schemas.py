@@ -148,8 +148,7 @@ EXTRACT_RESUME_FIELDS_TOOL: dict[str, Any] = {
                 "email": {
                     "type": ["string", "null"],
                     "description": (
-                        "Candidate's email address from the visible contact "
-                        "block only."
+                        "Candidate's email address from the visible contact block only."
                     ),
                 },
                 "phone": {
@@ -369,9 +368,7 @@ EXTRACT_RECEIPT_FIELDS_TOOL: dict[str, Any] = {
                             },
                         ],
                     },
-                    "description": (
-                        "Line items explicitly listed on the receipt."
-                    ),
+                    "description": ("Line items explicitly listed on the receipt."),
                 },
                 "subtotal": {
                     "type": ["number", "null"],
@@ -464,9 +461,7 @@ EXTRACT_REPORT_FIELDS_TOOL: dict[str, Any] = {
                     "items": {
                         "type": "string",
                     },
-                    "description": (
-                        "Recommendations explicitly listed in the report."
-                    ),
+                    "description": ("Recommendations explicitly listed in the report."),
                 },
                 "conclusion": {
                     "type": ["string", "null"],
@@ -519,9 +514,7 @@ EXTRACT_GENERIC_FIELDS_TOOL: dict[str, Any] = {
                     "items": {
                         "type": "string",
                     },
-                    "description": (
-                        "Key points explicitly present in the document."
-                    ),
+                    "description": ("Key points explicitly present in the document."),
                 },
                 "document_text_excerpt": {
                     "type": ["string", "null"],

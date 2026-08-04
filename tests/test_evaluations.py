@@ -160,10 +160,7 @@ def test_get_nested_value_reads_dictionary_path() -> None:
         ]
     }
 
-    assert (
-        get_nested_value(data, "education[0].school")
-        == "University of Houston"
-    )
+    assert get_nested_value(data, "education[0].school") == "University of Houston"
 
 
 def test_get_nested_value_reads_list_index_path() -> None:
@@ -195,10 +192,7 @@ def test_get_nested_value_returns_none_for_missing_nested_key() -> None:
         ]
     }
 
-    assert (
-        get_nested_value(data, "education[0].degree")
-        is None
-    )
+    assert get_nested_value(data, "education[0].degree") is None
 
 
 def test_get_nested_value_returns_none_for_out_of_range_index() -> None:
@@ -210,10 +204,7 @@ def test_get_nested_value_returns_none_for_out_of_range_index() -> None:
         ]
     }
 
-    assert (
-        get_nested_value(data, "education[1].school")
-        is None
-    )
+    assert get_nested_value(data, "education[1].school") is None
 
 
 def test_completeness_supports_nested_fields() -> None:

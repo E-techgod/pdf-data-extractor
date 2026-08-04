@@ -45,14 +45,10 @@ def test_extracts_text_from_all_pages(
     pdf_file.touch()
 
     first_page = Mock()
-    first_page.extract_text.return_value = (
-        "Invoice Number: 123\nAmount Due: $50"
-    )
+    first_page.extract_text.return_value = "Invoice Number: 123\nAmount Due: $50"
 
     second_page = Mock()
-    second_page.extract_text.return_value = (
-        "Payment Due: August 10, 2026"
-    )
+    second_page.extract_text.return_value = "Payment Due: August 10, 2026"
 
     mock_reader = Mock()
     mock_reader.pages = [first_page, second_page]
@@ -79,9 +75,7 @@ def test_skips_pages_without_text(
     empty_page.extract_text.return_value = None
 
     text_page = Mock()
-    text_page.extract_text.return_value = (
-        "Professional Experience\nEducation\nSkills"
-    )
+    text_page.extract_text.return_value = "Professional Experience\nEducation\nSkills"
 
     mock_reader = Mock()
     mock_reader.pages = [empty_page, text_page]
@@ -109,12 +103,14 @@ def test_rejects_pdf_without_extractable_text(
     mock_reader = Mock()
     mock_reader.pages = [page]
 
-    with patch(
-        "src.pdf_data_extractor.pdf_loader.PdfReader",
-        return_value=mock_reader,
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "src.pdf_data_extractor.pdf_loader.PdfReader",
+            return_value=mock_reader,
+        ),
+        pytest.raises(
             ValueError,
             match="No text could be extracted",
-        ):
-            extract_pdf_text(pdf_file)
+        ),
+    ):
+        extract_pdf_text(pdf_file)

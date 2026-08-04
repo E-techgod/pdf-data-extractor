@@ -20,19 +20,13 @@ def extract_pdf_text(file_path: str | Path) -> str:
     pdf_path = Path(file_path)
 
     if not pdf_path.exists():
-        raise FileNotFoundError(
-            f"PDF file does not exist: {pdf_path}"
-        )
+        raise FileNotFoundError(f"PDF file does not exist: {pdf_path}")
 
     if not pdf_path.is_file():
-        raise ValueError(
-            f"Path is not a file: {pdf_path}"
-        )
+        raise ValueError(f"Path is not a file: {pdf_path}")
 
     if pdf_path.suffix.lower() != ".pdf":
-        raise ValueError(
-            f"Expected a PDF file, received: {pdf_path.suffix}"
-        )
+        raise ValueError(f"Expected a PDF file, received: {pdf_path.suffix}")
 
     reader = PdfReader(pdf_path)
 
@@ -47,9 +41,7 @@ def extract_pdf_text(file_path: str | Path) -> str:
         cleaned_text = page_text.strip()
 
         if cleaned_text:
-            extracted_pages.append(
-                f"--- Page {page_number} ---\n{cleaned_text}"
-            )
+            extracted_pages.append(f"--- Page {page_number} ---\n{cleaned_text}")
 
     if not extracted_pages:
         raise ValueError(

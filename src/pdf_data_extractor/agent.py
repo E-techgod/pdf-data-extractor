@@ -24,8 +24,7 @@ from src.pdf_data_extractor.tool_schemas import (
 
 DEFAULT_MODEL = "llama-3.1-8b-instant"
 UNREGISTERED_EXTRACTOR_WARNING = (
-    "No specialized extractor is registered for document_type "
-    "'{document_type}'."
+    "No specialized extractor is registered for document_type '{document_type}'."
 )
 RESUME_EXTRACTION_HINT = (
     "For resume extraction, return education and experience as arrays "
@@ -158,11 +157,7 @@ def _classify_document_by_keywords(
         scores.values(),
         reverse=True,
     )
-    second_best_score = (
-        competing_scores[1]
-        if len(competing_scores) > 1
-        else 0
-    )
+    second_best_score = competing_scores[1] if len(competing_scores) > 1 else 0
 
     if best_score < 2 or best_score == second_best_score:
         return DocumentClassification(
@@ -181,6 +176,7 @@ def _classify_document_by_keywords(
         ),
     )
 
+
 def _parse_tool_arguments(
     raw_arguments: Any,
     *,
@@ -190,26 +186,18 @@ def _parse_tool_arguments(
         return raw_arguments
 
     if not isinstance(raw_arguments, str):
-        raise ValueError(
-            f"Invalid tool arguments for {tool_name}"
-        )
+        raise TypeError(f"Invalid tool arguments for {tool_name}")
 
     try:
         parsed_arguments = json.loads(raw_arguments)
     except json.JSONDecodeError:
         try:
-            parsed_arguments = ast.literal_eval(
-                raw_arguments
-            )
+            parsed_arguments = ast.literal_eval(raw_arguments)
         except (SyntaxError, ValueError) as exc:
-            raise ValueError(
-                f"Invalid tool arguments for {tool_name}"
-            ) from exc
+            raise ValueError(f"Invalid tool arguments for {tool_name}") from exc
 
     if not isinstance(parsed_arguments, dict):
-        raise ValueError(
-            f"Invalid tool arguments for {tool_name}"
-        )
+        raise TypeError(f"Invalid tool arguments for {tool_name}")
 
     return parsed_arguments
 
@@ -259,9 +247,7 @@ def _request_required_tool_call(
         model=model,
         messages=messages,
         tools=[tool_schema],
-        tool_choice=_build_required_tool_choice(
-            expected_tool_name
-        ),
+        tool_choice=_build_required_tool_choice(expected_tool_name),
         temperature=0,
     )
 
@@ -269,21 +255,16 @@ def _request_required_tool_call(
     tool_calls = assistant_message.tool_calls or []
 
     if not tool_calls:
-        raise RuntimeError(
-            f"Groq did not call required tool: {expected_tool_name}"
-        )
+        raise RuntimeError(f"Groq did not call required tool: {expected_tool_name}")
 
     if len(tool_calls) != 1:
-        raise RuntimeError(
-            f"Expected one tool call, received {len(tool_calls)}"
-        )
+        raise RuntimeError(f"Expected one tool call, received {len(tool_calls)}")
 
     tool_call = tool_calls[0]
 
     if tool_call.function.name != expected_tool_name:
         raise RuntimeError(
-            f"Expected tool {expected_tool_name}, "
-            f"received {tool_call.function.name}"
+            f"Expected tool {expected_tool_name}, received {tool_call.function.name}"
         )
 
     return tool_call
@@ -296,9 +277,7 @@ def _execute_tool_call(
 
     tool_function = TOOL_REGISTRY.get(tool_name)
     if tool_function is None:
-        raise ValueError(
-            f"Unknown tool requested: {tool_name}"
-        )
+        raise ValueError(f"Unknown tool requested: {tool_name}")
 
     arguments = _parse_tool_arguments(
         tool_call.function.arguments,
@@ -308,9 +287,7 @@ def _execute_tool_call(
     try:
         return tool_function(**arguments)
     except TypeError as exc:
-        raise ValueError(
-            f"Invalid arguments for tool: {tool_name}"
-        ) from exc
+        raise ValueError(f"Invalid arguments for tool: {tool_name}") from exc
 
 
 def _empty_result_for_document_type(
@@ -319,11 +296,7 @@ def _empty_result_for_document_type(
     return DocumentExtractionResult(
         document_type=document_type,
         data=EmptyExtractionData(),
-        warnings=[
-            UNREGISTERED_EXTRACTOR_WARNING.format(
-                document_type=document_type
-            )
-        ],
+        warnings=[UNREGISTERED_EXTRACTOR_WARNING.format(document_type=document_type)],
     )
 
 
@@ -382,32 +355,22 @@ def classify_with_groq(
         expected_tool_name="classify_document",
     )
 
-    classification_result = _execute_tool_call(
-        classification_tool_call
-    )
+    classification_result = _execute_tool_call(classification_tool_call)
 
     if not isinstance(
         classification_result,
         DocumentClassification,
     ):
-        raise RuntimeError(
-            "classify_document returned an invalid result."
-        )
+        raise TypeError("classify_document returned an invalid result.")
 
-    keyword_classification = (
-        _classify_document_by_keywords(document_text)
-    )
+    keyword_classification = _classify_document_by_keywords(document_text)
     classification_result = keyword_classification
 
     document_type = classification_result.document_type
-    specialized_tool_name = SPECIALIZED_TOOL_NAMES.get(
-        document_type
-    )
+    specialized_tool_name = SPECIALIZED_TOOL_NAMES.get(document_type)
 
     if specialized_tool_name is None:
-        return _empty_result_for_document_type(
-            document_type
-        )
+        return _empty_result_for_document_type(document_type)
 
     extraction_messages = [
         {
@@ -420,15 +383,23 @@ def classify_with_groq(
                 + (
                     RESUME_EXTRACTION_HINT
                     if document_type == "resume"
-                    else INVOICE_EXTRACTION_HINT
-                    if document_type == "invoice"
-                    else RECEIPT_EXTRACTION_HINT
-                    if document_type == "receipt"
-                    else REPORT_EXTRACTION_HINT
-                    if document_type == "report"
-                    else GENERIC_EXTRACTION_HINT
-                    if document_type == "generic"
-                    else ""
+                    else (
+                        INVOICE_EXTRACTION_HINT
+                        if document_type == "invoice"
+                        else (
+                            RECEIPT_EXTRACTION_HINT
+                            if document_type == "receipt"
+                            else (
+                                REPORT_EXTRACTION_HINT
+                                if document_type == "report"
+                                else (
+                                    GENERIC_EXTRACTION_HINT
+                                    if document_type == "generic"
+                                    else ""
+                                )
+                            )
+                        )
+                    )
                 )
             ),
         },
@@ -446,23 +417,17 @@ def classify_with_groq(
         client=groq_client,
         model=model,
         messages=extraction_messages,
-        tool_schema=SPECIALIZED_TOOL_SCHEMAS[
-            document_type
-        ],
+        tool_schema=SPECIALIZED_TOOL_SCHEMAS[document_type],
         expected_tool_name=specialized_tool_name,
     )
 
-    extraction_result = _execute_tool_call(
-        extraction_tool_call
-    )
+    extraction_result = _execute_tool_call(extraction_tool_call)
 
     if not isinstance(
         extraction_result,
         DocumentExtractionResult,
     ):
-        raise RuntimeError(
-            f"{specialized_tool_name} returned an invalid result."
-        )
+        raise TypeError(f"{specialized_tool_name} returned an invalid result.")
 
     return extraction_result
 

@@ -1,15 +1,6 @@
 from collections.abc import Callable
 from typing import Any
 
-from src.pdf_data_extractor.tools import (
-    classify_document,
-    extract_generic_fields,
-    extract_invoice_fields,
-    extract_report_fields,
-    extract_receipt_fields,
-    extract_resume_fields,
-)
-
 from src.pdf_data_extractor.tool_schemas import (
     EXTRACT_GENERIC_FIELDS_TOOL,
     EXTRACT_INVOICE_FIELDS_TOOL,
@@ -17,7 +8,14 @@ from src.pdf_data_extractor.tool_schemas import (
     EXTRACT_REPORT_FIELDS_TOOL,
     EXTRACT_RESUME_FIELDS_TOOL,
 )
-
+from src.pdf_data_extractor.tools import (
+    classify_document,
+    extract_generic_fields,
+    extract_invoice_fields,
+    extract_receipt_fields,
+    extract_report_fields,
+    extract_resume_fields,
+)
 
 ToolFunction = Callable[..., Any]
 

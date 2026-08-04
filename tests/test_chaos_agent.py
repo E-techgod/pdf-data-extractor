@@ -74,9 +74,7 @@ def test_empty_choices_list_crashes_with_unhandled_indexerror() -> None:
     # `choices` itself. The result is a raw, uncontextualized IndexError
     # instead of a clean, catchable RuntimeError.
     client = Mock()
-    client.chat.completions.create.return_value = SimpleNamespace(
-        choices=[]
-    )
+    client.chat.completions.create.return_value = SimpleNamespace(choices=[])
 
     with pytest.raises(IndexError):
         classify_with_groq("Some document text", client=client)
@@ -169,9 +167,7 @@ def test_unregistered_document_type_fallback_is_unreachable_in_real_flow(
 
     classify_call = make_tool_call(
         name="classify_document",
-        arguments=(
-            '{"document_type": "invoice", "reason": "Drifted registry."}'
-        ),
+        arguments=('{"document_type": "invoice", "reason": "Drifted registry."}'),
     )
     client = make_fake_client(make_response(tool_calls=[classify_call]))
 

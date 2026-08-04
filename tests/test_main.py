@@ -41,4 +41,3 @@ def test_main_uses_pdf_classification_flow(
     assert "Final response:" in output
     assert '"document_type": "generic"' in output
     assert '"title": "Meeting Notes"' in output
-

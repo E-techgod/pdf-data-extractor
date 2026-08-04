@@ -115,7 +115,9 @@ def test_invoice_total_nan_is_rejected_by_validation() -> None:
         )
 
 
-def test_invoice_total_infinity_passes_validation_then_silently_becomes_json_null() -> None:
+def test_invoice_total_infinity_passes_validation_then_silently_becomes_json_null() -> (
+    None
+):
     # Risk: unlike NaN, `float("inf") >= 0` is True, so `ge=0` does NOT
     # reject Infinity -- an LLM (or any caller) can smuggle a total of
     # Infinity straight through Pydantic validation. Worse: main.py's only
