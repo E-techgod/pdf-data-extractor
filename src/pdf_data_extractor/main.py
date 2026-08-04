@@ -4,7 +4,7 @@ from pathlib import Path
 from src.pdf_data_extractor.agent import classify_pdf_with_groq
 
 
-def main() -> None:  # Passed invoice, receipt, resume, report
+def main() -> None:  # Options invoice, receipt, resume, report, generic
     pdf_arg = (
         sys.argv[1] if len(sys.argv) > 1 else "data/receipt.pdf"
     )  # resume, receipt, generic, invoice, report
