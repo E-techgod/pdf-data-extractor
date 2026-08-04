@@ -1,4 +1,4 @@
-import main
+import src.pdf_data_extractor.main
 from src.pdf_data_extractor.schemas import (
     DocumentExtractionResult,
     GenericDocumentData,
@@ -10,7 +10,7 @@ def test_main_uses_pdf_classification_flow(
     capsys,
 ) -> None:
     monkeypatch.setattr(
-        main.sys,
+        src.pdf_data_extractor.main.sys,
         "argv",
         ["main.py", "data/generic.pdf"],
     )
@@ -28,12 +28,12 @@ def test_main_uses_pdf_classification_flow(
         )
 
     monkeypatch.setattr(
-        main,
+        src.pdf_data_extractor.main,
         "classify_pdf_with_groq",
         fake_classify_pdf_with_groq,
     )
 
-    main.main()
+    src.pdf_data_extractor.main.main()
 
     output = capsys.readouterr().out
 

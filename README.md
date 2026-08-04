@@ -1,5 +1,7 @@
 # pdf-data-extractor
 
+[![Tests](https://github.com/E-techgod/pdf-data-extractor/actions/workflows/tests.yml/badge.svg)](https://github.com/E-techgod/pdf-data-extractor/actions/workflows/tests.yml)
+
 A Groq-powered document extraction agent that first classifies a document as `invoice`, `resume`, `receipt`, `report`, or `generic`, then calls the matching extraction tool to return validated structured fields.
 
 ## How it works
